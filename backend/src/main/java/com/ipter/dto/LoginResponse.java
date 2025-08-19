@@ -16,6 +16,7 @@ public class LoginResponse {
     private String email;
     private UserRole role;
     private long expiresIn;
+    private boolean mustChangePassword;
     
     // Constructors
     public LoginResponse() {}
@@ -27,7 +28,7 @@ public class LoginResponse {
         this.email = email;
         this.role = role;
     }
-    
+
     public LoginResponse(String token, UUID userId, String username, String email, UserRole role, long expiresIn) {
         this.token = token;
         this.userId = userId;
@@ -35,6 +36,16 @@ public class LoginResponse {
         this.email = email;
         this.role = role;
         this.expiresIn = expiresIn;
+    }
+
+    public LoginResponse(String token, UUID userId, String username, String email, UserRole role, long expiresIn, boolean mustChangePassword) {
+        this.token = token;
+        this.userId = userId;
+        this.username = username;
+        this.email = email;
+        this.role = role;
+        this.expiresIn = expiresIn;
+        this.mustChangePassword = mustChangePassword;
     }
     
     // Getters and Setters
@@ -92,5 +103,13 @@ public class LoginResponse {
     
     public void setExpiresIn(long expiresIn) {
         this.expiresIn = expiresIn;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { authAPI, User, LoginData } from '../services/api';
+import { authAPI, User, LoginData, UserRole } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -7,6 +7,11 @@ interface AuthContextType {
   login: (data: LoginData) => Promise<void>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  isAdmin: boolean;
+  isReviewer: boolean;
+  hasRole: (role: UserRole) => boolean;
+  mustChangePassword: boolean;
+  setMustChangePassword: (value: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +31,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -64,11 +70,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         id: response.userId || '',
         username: response.username || '',
         email: response.email || '',
+        role: response.role,
+        isActive: true, // User is active if they can login
         roles: response.role ? [response.role] : []
       };
 
       console.log('Setting user:', user);
       setUser(user);
+      setMustChangePassword(response.mustChangePassword || false);
       console.log('User set successfully');
     } catch (error) {
       console.error('Login failed:', error);
@@ -87,8 +96,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       setUser(null);
+      setMustChangePassword(false);
     }
   };
+
+  // Helper functions for role checking
+  const hasRole = (role: UserRole): boolean => {
+    return user?.role === role;
+  };
+
+  const isAdmin = hasRole(UserRole.ADMINISTRATOR);
+  const isReviewer = hasRole(UserRole.REVIEWER);
 
   const value: AuthContextType = {
     user,
@@ -96,6 +114,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     isAuthenticated: !!user,
+    isAdmin,
+    isReviewer,
+    hasRole,
+    mustChangePassword,
+    setMustChangePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

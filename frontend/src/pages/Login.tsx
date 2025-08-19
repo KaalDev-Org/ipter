@@ -10,6 +10,7 @@ import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Eye, EyeOff, Lock, User, Loader2 } from 'lucide-react';
 import ZuelligLogo from '../components/ui/zuellig-logo';
+import ApiTest from '../components/ApiTest';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -56,7 +57,29 @@ const Login: React.FC = () => {
       // The useEffect will handle the redirect when isAuthenticated becomes true
     } catch (err: any) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+
+      let errorMessage = 'Login failed. Please try again.';
+
+      if (!err.response) {
+        // Network error or CORS issue
+        if (err.code === 'ERR_NETWORK') {
+          errorMessage = 'Unable to connect to server. Please ensure the backend is running on port 8080.';
+        } else if (err.message?.includes('CORS')) {
+          errorMessage = 'CORS error. Please check server configuration.';
+        } else {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        }
+      } else if (err.response.status === 401) {
+        errorMessage = 'Invalid username or password.';
+      } else if (err.response.status === 404) {
+        errorMessage = 'Backend server not found. Please ensure the backend is running on port 8080.';
+      } else if (err.response.status === 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else {
+        errorMessage = err.response?.data?.message || err.response?.data?.error || errorMessage;
+      }
+
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -105,6 +128,7 @@ const Login: React.FC = () => {
           </CardHeader>
 
           <CardContent className="p-6 space-y-5">
+            {/* API Test Component - Remove this after testing */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               {/* Username Field */}
               <div className="space-y-2">

@@ -3,6 +3,7 @@ package com.ipter.dto;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.ipter.model.User;
 import com.ipter.model.UserRole;
 
@@ -19,6 +20,7 @@ public class UserResponse {
     private String organization;
     private String designation;
     private String address;
+    @JsonProperty("isActive")
     private boolean isActive;
     private boolean canViewAuditTrail;
     private boolean canCreateProjects;
@@ -27,6 +29,7 @@ public class UserResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private int failedLoginAttempts;
+    private boolean mustChangePassword;
     
     // Constructors
     public UserResponse() {}
@@ -48,6 +51,7 @@ public class UserResponse {
         this.createdAt = user.getCreatedAt();
         this.updatedAt = user.getUpdatedAt();
         this.failedLoginAttempts = user.getFailedLoginAttempts();
+        this.mustChangePassword = user.isMustChangePassword();
     }
     
     // Getters and Setters
@@ -177,5 +181,13 @@ public class UserResponse {
     
     public void setFailedLoginAttempts(int failedLoginAttempts) {
         this.failedLoginAttempts = failedLoginAttempts;
+    }
+
+    public boolean isMustChangePassword() {
+        return mustChangePassword;
+    }
+
+    public void setMustChangePassword(boolean mustChangePassword) {
+        this.mustChangePassword = mustChangePassword;
     }
 }

@@ -91,6 +91,9 @@ public class AuthController {
             response.put("isActive", user.isActive());
             response.put("lastLogin", user.getLastLogin());
             response.put("createdAt", user.getCreatedAt());
+            response.put("canViewAuditTrail", user.isCanViewAuditTrail());
+            response.put("canCreateProjects", user.isCanCreateProjects());
+            response.put("canViewReports", user.isCanViewReports());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {

@@ -8,13 +8,28 @@ import Dashboard from '../pages/Dashboard';
 import Profile from '../pages/Profile';
 import UserManagement from '../pages/UserManagement';
 import ProjectManagement from '../pages/ProjectManagement';
+import ChangePasswordModal from './ChangePasswordModal';
 
 // Layout component for authenticated pages (with navbar)
 const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { mustChangePassword, setMustChangePassword, user } = useAuth();
+
+  const handlePasswordChangeSuccess = () => {
+    setMustChangePassword(false);
+  };
+
   return (
     <div className="min-h-screen bg-white font-body">
       <Navbar />
       {children}
+
+      {/* Password Change Modal */}
+      <ChangePasswordModal
+        isOpen={mustChangePassword}
+        onClose={() => {}} // Prevent closing until password is changed
+        onSuccess={handlePasswordChangeSuccess}
+        username={user?.username || ''}
+      />
     </div>
   );
 };

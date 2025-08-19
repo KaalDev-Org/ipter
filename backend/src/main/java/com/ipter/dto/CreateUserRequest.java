@@ -44,7 +44,7 @@ public class CreateUserRequest {
     private boolean canViewReports = false;
     
     // Force password change on first login
-    private boolean mustChangePassword = true;
+    private boolean mustChangePassword = false;
     
     // Constructors
     public CreateUserRequest() {}

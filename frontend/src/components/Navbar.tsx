@@ -13,11 +13,13 @@ import {
 } from './ui/dropdown-menu';
 import { Button } from './ui/button';
 import ZuelligIcon from './ui/zuellig-icon';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('user-management');
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -39,6 +41,7 @@ const Navbar: React.FC = () => {
   };
 
   return (
+    <>
     <nav className="bg-gradient-to-r from-z-ivory via-white to-z-light-green border-b border-z-pale-green/20 shadow-lg backdrop-blur-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-16">
@@ -187,7 +190,7 @@ const Navbar: React.FC = () => {
                     <span className="font-medium">View Profile</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => navigate('/change-password')}
+                    onClick={() => setShowChangePasswordModal(true)}
                     className="hover:bg-z-sky/10 transition-colors cursor-pointer p-3"
                   >
                     <Key className="mr-3 h-4 w-4 text-slate-600" />
@@ -216,6 +219,18 @@ const Navbar: React.FC = () => {
         </div>
       </div>
     </nav>
+
+    {/* Change Password Modal */}
+    <ChangePasswordModal
+      isOpen={showChangePasswordModal}
+      onClose={() => setShowChangePasswordModal(false)}
+      onSuccess={() => {
+        setShowChangePasswordModal(false);
+        // Could add a toast notification here
+      }}
+      username={user?.username || ''}
+    />
+    </>
   );
 };
 

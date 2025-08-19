@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,131 +9,130 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Switch } from '../components/ui/switch';
 import { Textarea } from '../components/ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '../components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { useAuth } from '../contexts/AuthContext';
+import { userAPI, UserRole, UserResponse, CreateUserRequest, UserStats } from '../services/api';
+import { useToast } from '../components/ui/toast';
 
-import { UserPlus, Users, Eye, EyeOff, Loader2, Shield, Building, MapPin, User, Key, Settings, Search, Filter, MoreHorizontal, Calendar, Clock } from 'lucide-react';
+import { UserPlus, Users, Eye, EyeOff, Loader2, Shield, Building, MapPin, User, Key, Settings, Search, Filter, MoreHorizontal, Calendar, Clock, RefreshCw, AlertCircle, CheckCircle, Edit, Trash2, Unlock, RotateCcw } from 'lucide-react';
 
 const createUserSchema = z.object({
   username: z.string().min(1, 'Username is required').min(3, 'Username must be at least 3 characters'),
   loginId: z.string().min(1, 'Login ID is required').min(3, 'Login ID must be at least 3 characters'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.string().min(1, 'Role is required'),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  role: z.nativeEnum(UserRole),
   organization: z.string().min(1, 'Organization is required'),
   designation: z.string().min(1, 'Designation is required'),
   address: z.string().min(1, 'Address is required'),
-  status: z.string().min(1, 'Status is required'),
-  viewAuditTrail: z.boolean(),
-  createProjects: z.boolean(),
-  viewReports: z.boolean(),
+  canViewAuditTrail: z.boolean(),
+  canCreateProjects: z.boolean(),
+  canViewReports: z.boolean(),
+  mustChangePassword: z.boolean(),
+});
+
+const updateUserSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+  role: z.nativeEnum(UserRole),
+  organization: z.string().optional(),
+  designation: z.string().optional(),
+  address: z.string().optional(),
+  canViewAuditTrail: z.boolean(),
+  canCreateProjects: z.boolean(),
+  canViewReports: z.boolean(),
+  isActive: z.boolean(),
 });
 
 type CreateUserFormData = z.infer<typeof createUserSchema>;
-
-// Mock user data
-const mockUsers = [
-  {
-    id: '1',
-    username: 'john_doe123',
-    loginId: 'jdoe01',
-    role: 'Administrator',
-    organization: 'Zuellig Pharma',
-    designation: 'Senior Manager',
-    address: 'Changi Plant, Singapore',
-    status: 'enabled',
-    viewAuditTrail: true,
-    createProjects: true,
-    viewReports: true,
-    createdAt: '2024-01-15T10:30:00Z',
-    email: 'john.doe@zuelligpharma.com'
-  },
-  {
-    id: '2',
-    username: 'sarah_wilson',
-    loginId: 'swilson02',
-    role: 'Reviewer',
-    organization: 'Zuellig Pharma',
-    designation: 'Quality Analyst',
-    address: 'Bangkok Office, Thailand',
-    status: 'enabled',
-    viewAuditTrail: true,
-    createProjects: false,
-    viewReports: true,
-    createdAt: '2024-01-20T14:15:00Z',
-    email: 'sarah.wilson@zuelligpharma.com'
-  },
-  {
-    id: '3',
-    username: 'mike_chen',
-    loginId: 'mchen03',
-    role: 'User',
-    organization: 'Zuellig Pharma',
-    designation: 'Lab Technician',
-    address: 'Manila Facility, Philippines',
-    status: 'disabled',
-    viewAuditTrail: false,
-    createProjects: false,
-    viewReports: false,
-    createdAt: '2024-02-01T09:45:00Z',
-    email: 'mike.chen@zuelligpharma.com'
-  },
-  {
-    id: '4',
-    username: 'lisa_kumar',
-    loginId: 'lkumar04',
-    role: 'Reviewer',
-    organization: 'Zuellig Pharma',
-    designation: 'Process Engineer',
-    address: 'Mumbai Plant, India',
-    status: 'enabled',
-    viewAuditTrail: true,
-    createProjects: true,
-    viewReports: true,
-    createdAt: '2024-02-10T16:20:00Z',
-    email: 'lisa.kumar@zuelligpharma.com'
-  },
-  {
-    id: '5',
-    username: 'david_tan',
-    loginId: 'dtan05',
-    role: 'User',
-    organization: 'Zuellig Pharma',
-    designation: 'Research Associate',
-    address: 'Kuala Lumpur Office, Malaysia',
-    status: 'enabled',
-    viewAuditTrail: false,
-    createProjects: false,
-    viewReports: true,
-    createdAt: '2024-02-15T11:10:00Z',
-    email: 'david.tan@zuelligpharma.com'
-  }
-];
+type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 
 const UserManagement: React.FC = () => {
+  const { isAdmin, user } = useAuth();
+  const { showToast } = useToast();
+
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // User data state
+  const [users, setUsers] = useState<UserResponse[]>([]);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  // User action states
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
+  const [showEditUserDialog, setShowEditUserDialog] = useState(false);
+  const [showUserDetailsDialog, setShowUserDetailsDialog] = useState(false);
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [editUserLoading, setEditUserLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+
   // Filtering and search state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
 
+  // Load data on component mount
+  useEffect(() => {
+    if (isAdmin) {
+      loadUsers();
+      loadUserStats();
+    }
+  }, [isAdmin]);
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const response = await userAPI.getAllUsers({
+        page: 0,
+        size: 100, // Load all users for now
+        sortBy: 'createdAt',
+        sortDir: 'desc'
+      });
+      setUsers(response.users || response.content || []);
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      setError('Failed to load users. Please try refreshing the page.');
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const loadUserStats = async () => {
+    setLoadingStats(true);
+    try {
+      const stats = await userAPI.getUserStats();
+      setUserStats(stats);
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+    } finally {
+      setLoadingStats(false);
+    }
+  };
+
   // Filtered users based on search and filters
   const filteredUsers = useMemo(() => {
-    return mockUsers.filter(user => {
+    return users.filter(user => {
       const matchesSearch =
         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.loginId.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.designation.toLowerCase().includes(searchTerm.toLowerCase());
+        (user.designation && user.designation.toLowerCase().includes(searchTerm.toLowerCase()));
 
-      const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
-      const matchesRole = roleFilter === 'all' || user.role.toLowerCase() === roleFilter.toLowerCase();
+      const matchesStatus = statusFilter === 'all' ||
+        (statusFilter === 'enabled' && user.isActive) ||
+        (statusFilter === 'disabled' && !user.isActive);
+
+      const matchesRole = roleFilter === 'all' || user.role === roleFilter.toUpperCase();
 
       return matchesSearch && matchesStatus && matchesRole;
     });
-  }, [searchTerm, statusFilter, roleFilter]);
+  }, [users, searchTerm, statusFilter, roleFilter]);
 
   const {
     register,
@@ -145,40 +144,106 @@ const UserManagement: React.FC = () => {
   } = useForm<CreateUserFormData>({
     resolver: zodResolver(createUserSchema),
     defaultValues: {
-      viewAuditTrail: false,
-      createProjects: false,
-      viewReports: false,
-      status: 'enabled',
-      role: '',
+      canViewAuditTrail: false,
+      canCreateProjects: false,
+      canViewReports: false,
+      mustChangePassword: false,
+      role: UserRole.USER,
       organization: 'Zuellig Pharma',
     },
   });
 
+  const {
+    register: registerEdit,
+    handleSubmit: handleSubmitEdit,
+    formState: { errors: editErrors },
+    setValue: setEditValue,
+    watch: watchEdit,
+    reset: resetEdit,
+  } = useForm<UpdateUserFormData>({
+    resolver: zodResolver(updateUserSchema),
+  });
+
   const onSubmit = async (data: CreateUserFormData) => {
+    if (!isAdmin) {
+      setError('Only administrators can create users');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // Dummy API call - replace with actual API when available
-      console.log('Creating user with data:', data);
+      const createUserData: CreateUserRequest = {
+        username: data.username,
+        loginId: data.loginId,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        organization: data.organization,
+        designation: data.designation,
+        address: data.address,
+        canViewAuditTrail: data.canViewAuditTrail,
+        canCreateProjects: data.canCreateProjects,
+        canViewReports: data.canViewReports,
+        mustChangePassword: data.mustChangePassword,
+      };
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await userAPI.createUser(createUserData);
 
-      setSuccess('User created successfully!');
+      // Show success toast
+      showToast(`User ${data.username} has been created successfully!`, 'success');
+
+      // Clear any existing success/error messages
+      setSuccess(null);
+      setError(null);
       reset();
+
+      // Refresh user list and stats
+      await loadUsers();
+      await loadUserStats();
+
     } catch (err: any) {
-      setError('Failed to create user. Please try again.');
+      console.error('Failed to create user:', err);
+      const errorMessage = err.response?.data?.error || 'Failed to create user. Please try again.';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const toggleUserStatus = (userId: string) => {
-    // In a real app, this would make an API call
-    console.log('Toggling status for user:', userId);
-    // For demo purposes, we'll just log it
+  const toggleUserStatus = async (userId: string) => {
+    if (!isAdmin) {
+      setError('Only administrators can modify user status');
+      return;
+    }
+
+    // Prevent admin from disabling themselves
+    if (user?.id === userId) {
+      setError('You cannot enable or disable your own account');
+      return;
+    }
+
+    try {
+      const response = await userAPI.toggleUserStatus(userId);
+      setSuccess(response.message);
+
+      // Update local state
+      setUsers(prev => prev.map(user =>
+        user.id === userId
+          ? { ...user, isActive: response.user.isActive }
+          : user
+      ));
+
+      // Refresh stats
+      await loadUserStats();
+
+    } catch (error: any) {
+      console.error('Failed to toggle user status:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to update user status';
+      setError(errorMessage);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -195,6 +260,128 @@ const UserManagement: React.FC = () => {
       })
     };
   };
+
+  // User action handlers
+  const handleResetPassword = async () => {
+    if (!selectedUser || !newPassword.trim()) {
+      setError('Please enter a new password');
+      return;
+    }
+
+    setResetPasswordLoading(true);
+    try {
+      await userAPI.resetUserPassword(selectedUser.id, {
+        newPassword: newPassword.trim(),
+        forcePasswordChange: true
+      });
+
+      setSuccess(`Password reset successfully for ${selectedUser.username}`);
+      setShowResetPasswordDialog(false);
+      setNewPassword('');
+      setSelectedUser(null);
+
+    } catch (error: any) {
+      console.error('Failed to reset password:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to reset password';
+      setError(errorMessage);
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  };
+
+  const handleUnlockUser = async (userId: string) => {
+    try {
+      const response = await userAPI.unlockUserAccount(userId);
+      setSuccess(response.message);
+
+      // Update local state
+      setUsers(prev => prev.map(user =>
+        user.id === userId
+          ? { ...user, failedLoginAttempts: 0 }
+          : user
+      ));
+
+    } catch (error: any) {
+      console.error('Failed to unlock user:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to unlock user account';
+      setError(errorMessage);
+    }
+  };
+
+  const onEditSubmit = async (data: UpdateUserFormData) => {
+    if (!selectedUser) return;
+
+    setEditUserLoading(true);
+    setError(null);
+
+    try {
+      const response = await userAPI.updateUser(selectedUser.id, data);
+
+      // Update the user in the local state
+      setUsers(prevUsers =>
+        prevUsers.map(u => u.id === selectedUser.id ? response.user : u)
+      );
+
+      showToast(`User ${selectedUser.username} has been updated successfully!`, 'success');
+      setShowEditUserDialog(false);
+      setSelectedUser(null);
+      resetEdit();
+
+    } catch (error: any) {
+      console.error('Failed to update user:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to update user';
+      setError(errorMessage);
+    } finally {
+      setEditUserLoading(false);
+    }
+  };
+
+  const openResetPasswordDialog = (user: UserResponse) => {
+    setSelectedUser(user);
+    setNewPassword('');
+    setShowResetPasswordDialog(true);
+  };
+
+  const openEditUserDialog = (user: UserResponse) => {
+    setSelectedUser(user);
+    // Pre-populate the form with current user data
+    setEditValue('email', user.email);
+    setEditValue('role', user.role);
+    setEditValue('organization', user.organization || '');
+    setEditValue('designation', user.designation || '');
+    setEditValue('address', user.address || '');
+    setEditValue('canViewAuditTrail', user.canViewAuditTrail);
+    setEditValue('canCreateProjects', user.canCreateProjects);
+    setEditValue('canViewReports', user.canViewReports);
+    setEditValue('isActive', user.isActive);
+    setShowEditUserDialog(true);
+  };
+
+  const openUserDetailsDialog = (user: UserResponse) => {
+    setSelectedUser(user);
+    setShowUserDetailsDialog(true);
+  };
+
+  // Check if user has admin access
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-z-ivory via-z-light-green to-z-pale-green flex items-center justify-center">
+        <Card className="max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle className="text-center text-red-600 flex items-center justify-center space-x-2">
+              <AlertCircle className="w-6 h-6" />
+              <span>Access Denied</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-center text-gray-600">
+              You need administrator privileges to access user management.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-z-ivory via-z-light-green to-z-pale-green">
@@ -345,6 +532,31 @@ const UserManagement: React.FC = () => {
                           )}
                         </div>
                       </div>
+
+                      {/* Email */}
+                      <div className="space-y-3">
+                        <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                          <span>Email Address</span>
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="relative">
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="john.doe@zuelligpharma.com"
+                            {...register('email')}
+                            className={`h-12 pl-4 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                              errors.email ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          />
+                        </div>
+                        {errors.email && (
+                          <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                            <span>{errors.email?.message}</span>
+                          </p>
+                        )}
+                      </div>
                     </div>
 
                     {/* Security Section */}
@@ -405,16 +617,16 @@ const UserManagement: React.FC = () => {
                             <span>Role</span>
                             <span className="text-red-500">*</span>
                           </Label>
-                          <Select onValueChange={(value) => setValue('role', value)}>
+                          <Select onValueChange={(value) => setValue('role', value as UserRole)} defaultValue={UserRole.USER}>
                             <SelectTrigger className={`h-12 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
                               errors.role ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
                             }`}>
                               <SelectValue placeholder="Select a role" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-0 shadow-xl">
-                              <SelectItem value="user" className="rounded-lg">User</SelectItem>
-                              <SelectItem value="reviewer" className="rounded-lg">Reviewer</SelectItem>
-                              <SelectItem value="administrator" className="rounded-lg">Administrator</SelectItem>
+                              <SelectItem value={UserRole.USER} className="rounded-lg">User</SelectItem>
+                              <SelectItem value={UserRole.REVIEWER} className="rounded-lg">Reviewer</SelectItem>
+                              <SelectItem value={UserRole.ADMINISTRATOR} className="rounded-lg">Administrator</SelectItem>
                             </SelectContent>
                           </Select>
                           {errors.role && (
@@ -426,21 +638,7 @@ const UserManagement: React.FC = () => {
                         </div>
 
                         {/* Status */}
-                        <div className="space-y-3">
-                          <Label htmlFor="status" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                            <span>Status</span>
-                            <span className="text-red-500">*</span>
-                          </Label>
-                          <Select onValueChange={(value) => setValue('status', value)} defaultValue="enabled">
-                            <SelectTrigger className="h-12 border-2 rounded-xl border-gray-200 hover:border-gray-300 transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-0 shadow-xl">
-                              <SelectItem value="enabled" className="rounded-lg">Enabled</SelectItem>
-                              <SelectItem value="disabled" className="rounded-lg">Disabled</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+
                       </div>
                     </div>
 
@@ -543,9 +741,9 @@ const UserManagement: React.FC = () => {
                             <p className="text-xs text-gray-600">Allow user to view and access audit trail records</p>
                           </div>
                           <Switch
-                            id="viewAuditTrail"
-                            checked={watch('viewAuditTrail')}
-                            onCheckedChange={(checked) => setValue('viewAuditTrail', checked)}
+                            id="canViewAuditTrail"
+                            checked={watch('canViewAuditTrail')}
+                            onCheckedChange={(checked) => setValue('canViewAuditTrail', checked)}
                             className="data-[state=checked]:bg-blue-600"
                           />
                         </div>
@@ -558,9 +756,9 @@ const UserManagement: React.FC = () => {
                             <p className="text-xs text-gray-600">Allow user to create and manage new projects</p>
                           </div>
                           <Switch
-                            id="createProjects"
-                            checked={watch('createProjects')}
-                            onCheckedChange={(checked) => setValue('createProjects', checked)}
+                            id="canCreateProjects"
+                            checked={watch('canCreateProjects')}
+                            onCheckedChange={(checked) => setValue('canCreateProjects', checked)}
                             className="data-[state=checked]:bg-green-600"
                           />
                         </div>
@@ -573,29 +771,31 @@ const UserManagement: React.FC = () => {
                             <p className="text-xs text-gray-600">Allow user to view and generate system reports</p>
                           </div>
                           <Switch
-                            id="viewReports"
-                            checked={watch('viewReports')}
-                            onCheckedChange={(checked) => setValue('viewReports', checked)}
+                            id="canViewReports"
+                            checked={watch('canViewReports')}
+                            onCheckedChange={(checked) => setValue('canViewReports', checked)}
                             className="data-[state=checked]:bg-purple-600"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-100">
+                          <div className="space-y-1">
+                            <Label htmlFor="mustChangePassword" className="text-sm font-semibold text-gray-800">
+                              Force Password Change
+                            </Label>
+                            <p className="text-xs text-gray-600">Require user to change password on first login</p>
+                          </div>
+                          <Switch
+                            id="mustChangePassword"
+                            checked={watch('mustChangePassword')}
+                            onCheckedChange={(checked) => setValue('mustChangePassword', checked)}
+                            className="data-[state=checked]:bg-orange-600"
                           />
                         </div>
                       </div>
                     </div>
 
-                    {/* Success/Error Messages */}
-                    {success && (
-                      <div className="p-6 text-sm text-green-700 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="font-medium">{success}</span>
-                      </div>
-                    )}
 
-                    {error && (
-                      <div className="p-6 text-sm text-red-700 bg-gradient-to-r from-red-50 to-rose-50 border border-red-200 rounded-xl flex items-center space-x-3">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <span className="font-medium">{error}</span>
-                      </div>
-                    )}
 
                     {/* Submit Button */}
                     <div className="flex justify-center pt-8 border-t" style={{ borderColor: '#E4F2E7' }}>
@@ -668,20 +868,39 @@ const UserManagement: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Total Users</span>
-                        <span className="font-semibold text-slate-900">24</span>
+                    {loadingStats ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                        <span className="ml-2 text-sm text-gray-500">Loading statistics...</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Active Users</span>
-                        <span className="font-semibold text-green-600">22</span>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Total Users</span>
+                          <span className="font-semibold text-slate-900">{userStats?.totalUsers || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Active Users</span>
+                          <span className="font-semibold text-green-600">{userStats?.activeUsers || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Administrators</span>
+                          <span className="font-semibold text-purple-600">{userStats?.adminUsers || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Reviewers</span>
+                          <span className="font-semibold text-blue-600">{userStats?.reviewerUsers || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Regular Users</span>
+                          <span className="font-semibold text-gray-600">{userStats?.regularUsers || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-600">Locked Accounts</span>
+                          <span className="font-semibold text-red-600">{userStats?.lockedUsers || 0}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Administrators</span>
-                        <span className="font-semibold text-blue-600">3</span>
-                      </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -741,7 +960,7 @@ const UserManagement: React.FC = () => {
                 {/* Results count */}
                 <div className="mt-4 flex items-center justify-between">
                   <p className="text-sm text-gray-600">
-                    Showing <span className="font-semibold">{filteredUsers.length}</span> of <span className="font-semibold">{mockUsers.length}</span> users
+                    Showing <span className="font-semibold">{filteredUsers.length}</span> of <span className="font-semibold">{users.length}</span> users
                   </p>
                   <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -774,127 +993,163 @@ const UserManagement: React.FC = () => {
                     <p className="text-gray-500">Try adjusting your search or filter criteria</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="w-full">
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">User</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Role & Organization</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Permissions</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Created</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
-                          <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '22%'}}>User</th>
+                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '18%'}}>Role & Organization</th>
+                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '16%'}}>Permissions</th>
+                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '14%'}}>Created</th>
+                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '18%'}}>Status</th>
+                          <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '12%'}}>Actions</th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredUsers.map((user, index) => {
-                          const { date, time } = formatDate(user.createdAt);
+                        {filteredUsers.map((tableUser, index) => {
+                          const { date, time } = formatDate(tableUser.createdAt);
                           return (
-                            <tr key={user.id} className="hover:bg-gray-50 transition-colors duration-200">
+                            <tr key={tableUser.id} className="hover:bg-gray-50 transition-colors duration-200">
                               {/* User Info */}
-                              <td className="px-6 py-4">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
-                                    <span className="text-white font-semibold text-sm">
-                                      {user.username.charAt(0).toUpperCase()}
+                              <td className="px-4 py-4 align-top">
+                                <div className="flex items-start space-x-2">
+                                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white font-semibold text-xs">
+                                      {tableUser.username.charAt(0).toUpperCase()}
                                     </span>
                                   </div>
-                                  <div>
-                                    <div className="font-semibold text-gray-900">{user.username}</div>
-                                    <div className="text-sm text-gray-500">{user.email}</div>
-                                    <div className="text-xs text-gray-400">ID: {user.loginId}</div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-gray-900 text-sm truncate">{tableUser.username}</div>
+                                    <div className="text-xs text-gray-500 truncate">{tableUser.email}</div>
+                                    <div className="text-xs text-gray-400 truncate">ID: {tableUser.loginId}</div>
                                   </div>
                                 </div>
                               </td>
 
                               {/* Role & Organization */}
-                              <td className="px-6 py-4">
-                                <div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                      user.role === 'Administrator' ? 'bg-purple-100 text-purple-800' :
-                                      user.role === 'Reviewer' ? 'bg-blue-100 text-blue-800' :
-                                      'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {user.role}
-                                    </span>
-                                  </div>
-                                  <div className="text-sm text-gray-900 mt-1">{user.designation}</div>
-                                  <div className="text-xs text-gray-500">{user.organization}</div>
+                              <td className="px-4 py-4 align-top">
+                                <div className="space-y-1">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    tableUser.role === UserRole.ADMINISTRATOR ? 'bg-purple-100 text-purple-800' :
+                                    tableUser.role === UserRole.REVIEWER ? 'bg-blue-100 text-blue-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {tableUser.role}
+                                  </span>
+                                  <div className="text-xs text-gray-900 truncate">{tableUser.designation || 'N/A'}</div>
+                                  <div className="text-xs text-gray-500 truncate">{tableUser.organization || 'N/A'}</div>
                                 </div>
                               </td>
 
                               {/* Permissions */}
-                              <td className="px-6 py-4">
-                                <div className="flex flex-wrap gap-1">
-                                  {user.viewAuditTrail && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-green-100 text-green-800">
+                              <td className="px-4 py-4 align-top">
+                                <div className="flex flex-col gap-1">
+                                  {tableUser.canViewAuditTrail && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-800 w-fit">
                                       Audit
                                     </span>
                                   )}
-                                  {user.createProjects && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+                                  {tableUser.canCreateProjects && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-800 w-fit">
                                       Projects
                                     </span>
                                   )}
-                                  {user.viewReports && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-purple-100 text-purple-800">
+                                  {tableUser.canViewReports && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-purple-100 text-purple-800 w-fit">
                                       Reports
                                     </span>
+                                  )}
+                                  {!tableUser.canViewAuditTrail && !tableUser.canCreateProjects && !tableUser.canViewReports && (
+                                    <span className="text-xs text-gray-400">None</span>
                                   )}
                                 </div>
                               </td>
 
                               {/* Created Date */}
-                              <td className="px-6 py-4">
-                                <div className="flex items-center space-x-2 text-sm text-gray-900">
-                                  <Calendar className="w-4 h-4 text-gray-400" />
-                                  <div>
-                                    <div>{date}</div>
-                                    <div className="text-xs text-gray-500 flex items-center space-x-1">
-                                      <Clock className="w-3 h-3" />
-                                      <span>{time}</span>
-                                    </div>
+                              <td className="px-4 py-4 align-top">
+                                <div className="text-xs">
+                                  <div className="text-gray-900 font-medium">{date}</div>
+                                  <div className="text-xs text-gray-500 flex items-center space-x-1 mt-1">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{time}</span>
                                   </div>
                                 </div>
                               </td>
 
                               {/* Status */}
-                              <td className="px-6 py-4">
-                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                                  user.status === 'enabled'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  <div className={`w-2 h-2 rounded-full mr-2 ${
-                                    user.status === 'enabled' ? 'bg-green-500' : 'bg-red-500'
-                                  }`}></div>
-                                  {user.status === 'enabled' ? 'Active' : 'Inactive'}
-                                </span>
+                              <td className="px-4 py-4 align-top">
+                                <div className="space-y-1">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium w-fit ${
+                                    tableUser.isActive
+                                      ? 'bg-green-100 text-green-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
+                                      tableUser.isActive ? 'bg-green-500' : 'bg-red-500'
+                                    }`}></div>
+                                    {tableUser.isActive ? 'Active' : 'Inactive'}
+                                  </span>
+                                  {tableUser.mustChangePassword && (
+                                    <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-200 w-fit">
+                                      <Key className="w-3 h-3 mr-1" />
+                                      <span className="truncate">Reset Req.</span>
+                                    </div>
+                                  )}
+                                </div>
                               </td>
 
                               {/* Actions */}
-                              <td className="px-6 py-4">
+                              <td className="px-4 py-4 align-top">
                                 <div className="flex items-center space-x-2">
                                   <Button
                                     size="sm"
-                                    variant={user.status === 'enabled' ? 'outline' : 'default'}
-                                    onClick={() => toggleUserStatus(user.id)}
-                                    className={`text-xs px-3 py-1 rounded-lg transition-all duration-200 ${
-                                      user.status === 'enabled'
+                                    variant={tableUser.isActive ? 'outline' : 'default'}
+                                    onClick={() => toggleUserStatus(tableUser.id)}
+                                    disabled={user?.id === tableUser.id}
+                                    className={`text-xs px-2 py-1 rounded-md transition-all duration-200 ${
+                                      user?.id === tableUser.id
+                                        ? 'opacity-50 cursor-not-allowed'
+                                        : tableUser.isActive
                                         ? 'border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'
                                         : 'bg-green-600 text-white hover:bg-green-700'
                                     }`}
+                                    title={user?.id === tableUser.id ? 'You cannot modify your own account status' : ''}
                                   >
-                                    {user.status === 'enabled' ? 'Disable' : 'Enable'}
+                                    {tableUser.isActive ? 'Disable' : 'Enable'}
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-gray-400 hover:text-gray-600 p-1"
-                                  >
-                                    <MoreHorizontal className="w-4 h-4" />
-                                  </Button>
+
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="text-gray-400 hover:text-gray-600 p-1 h-8 w-8"
+                                      >
+                                        <MoreHorizontal className="w-4 h-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      <DropdownMenuItem onClick={() => openUserDetailsDialog(tableUser)}>
+                                        <Eye className="w-4 h-4 mr-2" />
+                                        View Details
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => openEditUserDialog(tableUser)}>
+                                        <Edit className="w-4 h-4 mr-2" />
+                                        Edit User
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => openResetPasswordDialog(tableUser)}>
+                                        <Key className="w-4 h-4 mr-2" />
+                                        Reset Password
+                                      </DropdownMenuItem>
+                                      {tableUser.failedLoginAttempts >= 5 && (
+                                        <DropdownMenuItem onClick={() => handleUnlockUser(tableUser.id)}>
+                                          <Unlock className="w-4 h-4 mr-2" />
+                                          Unlock Account
+                                        </DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </td>
                             </tr>
@@ -909,6 +1164,361 @@ const UserManagement: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Reset password for user: <strong>{selectedUser?.username}</strong>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="mt-1"
+              />
+            </div>
+            <div className="text-sm text-gray-600">
+              The user will be required to change this password on their next login.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowResetPasswordDialog(false)}
+              disabled={resetPasswordLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={resetPasswordLoading || !newPassword.trim()}
+            >
+              {resetPasswordLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                'Reset Password'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
+        <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[95vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Edit className="w-5 h-5" />
+              <span>Edit User</span>
+            </DialogTitle>
+            <DialogDescription>
+              Update information for user: <strong>{selectedUser?.username}</strong>
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedUser && (
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={handleSubmitEdit(onEditSubmit)} className="space-y-6 p-1">
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    <span className="text-red-800 font-medium">Error</span>
+                  </div>
+                  <p className="text-red-700 mt-1">{error}</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Email */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email" className="text-sm font-medium text-gray-700">
+                    Email Address *
+                  </Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    {...registerEdit('email')}
+                    className="w-full"
+                    placeholder="user@example.com"
+                  />
+                  {editErrors.email && (
+                    <p className="text-red-600 text-sm">{editErrors.email.message}</p>
+                  )}
+                </div>
+
+                {/* Role */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-role" className="text-sm font-medium text-gray-700">
+                    Role *
+                  </Label>
+                  <Select
+                    value={watchEdit('role')}
+                    onValueChange={(value) => setEditValue('role', value as UserRole)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UserRole.USER}>Regular User</SelectItem>
+                      <SelectItem value={UserRole.REVIEWER}>Reviewer</SelectItem>
+                      <SelectItem value={UserRole.ADMINISTRATOR}>Administrator</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {editErrors.role && (
+                    <p className="text-red-600 text-sm">{editErrors.role.message}</p>
+                  )}
+                </div>
+
+                {/* Organization */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-organization" className="text-sm font-medium text-gray-700">
+                    Organization
+                  </Label>
+                  <Input
+                    id="edit-organization"
+                    {...registerEdit('organization')}
+                    className="w-full"
+                    placeholder="Organization name"
+                  />
+                  {editErrors.organization && (
+                    <p className="text-red-600 text-sm">{editErrors.organization.message}</p>
+                  )}
+                </div>
+
+                {/* Designation */}
+                <div className="space-y-2">
+                  <Label htmlFor="edit-designation" className="text-sm font-medium text-gray-700">
+                    Designation
+                  </Label>
+                  <Input
+                    id="edit-designation"
+                    {...registerEdit('designation')}
+                    className="w-full"
+                    placeholder="Job title"
+                  />
+                  {editErrors.designation && (
+                    <p className="text-red-600 text-sm">{editErrors.designation.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Address */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-address" className="text-sm font-medium text-gray-700">
+                  Address
+                </Label>
+                <Textarea
+                  id="edit-address"
+                  {...registerEdit('address')}
+                  className="w-full"
+                  placeholder="Full address"
+                  rows={3}
+                />
+                {editErrors.address && (
+                  <p className="text-red-600 text-sm">{editErrors.address.message}</p>
+                )}
+              </div>
+
+              {/* Permissions */}
+              <div className="space-y-4">
+                <Label className="text-sm font-medium text-gray-700">Permissions</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <Switch
+                      id="edit-canViewAuditTrail"
+                      checked={watchEdit('canViewAuditTrail')}
+                      onCheckedChange={(checked) => setEditValue('canViewAuditTrail', checked)}
+                    />
+                    <Label htmlFor="edit-canViewAuditTrail" className="text-sm">
+                      Can View Audit Trail
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <Switch
+                      id="edit-canCreateProjects"
+                      checked={watchEdit('canCreateProjects')}
+                      onCheckedChange={(checked) => setEditValue('canCreateProjects', checked)}
+                    />
+                    <Label htmlFor="edit-canCreateProjects" className="text-sm">
+                      Can Create Projects
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <Switch
+                      id="edit-canViewReports"
+                      checked={watchEdit('canViewReports')}
+                      onCheckedChange={(checked) => setEditValue('canViewReports', checked)}
+                    />
+                    <Label htmlFor="edit-canViewReports" className="text-sm">
+                      Can View Reports
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                    <Switch
+                      id="edit-isActive"
+                      checked={watchEdit('isActive')}
+                      onCheckedChange={(checked) => setEditValue('isActive', checked)}
+                    />
+                    <Label htmlFor="edit-isActive" className="text-sm">
+                      Account Active
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowEditUserDialog(false)}
+                  disabled={editUserLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editUserLoading}
+                  className="text-gray-700 hover:text-gray-800"
+                  style={{
+                    background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 50%, #E4F2E7 100%)',
+                    border: '1px solid #D9ECD2'
+                  }}
+                >
+                  {editUserLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Update User
+                    </>
+                  )}
+                </Button>
+              </DialogFooter>
+              </form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* User Details Dialog */}
+      <Dialog open={showUserDetailsDialog} onOpenChange={setShowUserDetailsDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              Detailed information for {selectedUser?.username}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Username</Label>
+                  <p className="text-sm">{selectedUser.username}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Login ID</Label>
+                  <p className="text-sm">{selectedUser.loginId}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Email</Label>
+                  <p className="text-sm">{selectedUser.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Role</Label>
+                  <p className="text-sm">{selectedUser.role}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Organization</Label>
+                  <p className="text-sm">{selectedUser.organization}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Designation</Label>
+                  <p className="text-sm">{selectedUser.designation}</p>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-sm font-medium text-gray-500">Address</Label>
+                  <p className="text-sm">{selectedUser.address}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Status</Label>
+                  <p className={`text-sm ${selectedUser.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                    {selectedUser.isActive ? 'Active' : 'Inactive'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Failed Login Attempts</Label>
+                  <p className="text-sm">{selectedUser.failedLoginAttempts}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Password Status</Label>
+                  <p className={`text-sm ${selectedUser.mustChangePassword ? 'text-yellow-600' : 'text-green-600'}`}>
+                    {selectedUser.mustChangePassword ? 'Must Change Password' : 'Password OK'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Last Login</Label>
+                  <p className="text-sm">
+                    {selectedUser.lastLogin
+                      ? new Date(selectedUser.lastLogin).toLocaleString()
+                      : 'Never'
+                    }
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-500">Created At</Label>
+                  <p className="text-sm">{new Date(selectedUser.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium text-gray-500">Permissions</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {selectedUser.canViewAuditTrail && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-green-100 text-green-800">
+                      View Audit Trail
+                    </span>
+                  )}
+                  {selectedUser.canCreateProjects && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+                      Create Projects
+                    </span>
+                  )}
+                  {selectedUser.canViewReports && (
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-purple-100 text-purple-800">
+                      View Reports
+                    </span>
+                  )}
+                  {!selectedUser.canViewAuditTrail && !selectedUser.canCreateProjects && !selectedUser.canViewReports && (
+                    <span className="text-xs text-gray-400">No special permissions</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setShowUserDetailsDialog(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

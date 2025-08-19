@@ -6,6 +6,7 @@ import { Textarea } from '../components/ui/textarea';
 import { Button } from '../components/ui/button';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { useToast } from '../components/ui/toast';
 import { FolderOpen, Upload, FileText, Calendar, Package, Truck, FileCheck, X, CheckCircle } from 'lucide-react';
 
 interface ProjectFormData {
@@ -28,11 +29,10 @@ interface ProjectFormData {
 }
 
 const ProjectManagement: React.FC = () => {
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const {
     register,
@@ -50,21 +50,19 @@ const ProjectManagement: React.FC = () => {
 
   const onSubmit = async (data: ProjectFormData) => {
     setIsLoading(true);
-    setError(null);
-    setSuccess(null);
 
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       console.log('Project data:', data);
       console.log('Uploaded file:', uploadedFile);
-      
-      setSuccess('Project created successfully!');
+
+      showToast('Project created successfully!', 'success');
       reset();
       setUploadedFile(null);
     } catch (err) {
-      setError('Failed to create project. Please try again.');
+      showToast('Failed to create project. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -89,9 +87,8 @@ const ProjectManagement: React.FC = () => {
       const file = e.dataTransfer.files[0];
       if (file.type === 'application/pdf') {
         setUploadedFile(file);
-        setError(null);
       } else {
-        setError('Please upload only PDF files.');
+        showToast('Please upload only PDF files.', 'error');
       }
     }
   };
@@ -101,9 +98,8 @@ const ProjectManagement: React.FC = () => {
       const file = e.target.files[0];
       if (file.type === 'application/pdf') {
         setUploadedFile(file);
-        setError(null);
       } else {
-        setError('Please upload only PDF files.');
+        showToast('Please upload only PDF files.', 'error');
       }
     }
   };
@@ -113,37 +109,19 @@ const ProjectManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ 
-      background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 50%, #D9ECD2 100%)' 
-    }}>
-      {/* Enhanced Header Section */}
-      <div className="bg-white shadow-sm border-b-2" style={{ borderColor: '#D9ECD2' }}>
-        <div className="max-w-7xl mx-auto px-6 py-10">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
-            {/* Left Content */}
-            <div className="flex items-center space-x-6">
-              <div className="relative">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg" style={{ 
-                  background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)' 
-                }}>
-                  <FolderOpen className="w-8 h-8 text-gray-700" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-400 rounded-full border-2 border-white"></div>
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold text-gray-900 font-georgia mb-2">Project Management</h1>
-                <p className="text-lg text-gray-600 font-verdana">Create and manage pharmaceutical shipment projects</p>
-                <div className="flex items-center mt-3 space-x-4">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium" style={{ 
-                    backgroundColor: '#E4F2E7', 
-                    color: '#374151' 
-                  }}>
-                    Project Creation
-                  </span>
-                  <span className="text-sm text-gray-500">•</span>
-                  <span className="text-sm text-gray-500">IPTER System</span>
-                </div>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      {/* Header Section - Matching User Management */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg" style={{
+              background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
+            }}>
+              <FolderOpen className="w-6 h-6 text-gray-700" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 font-georgia">Project Management</h1>
+              <p className="text-gray-600 font-verdana">Create and manage pharmaceutical shipment projects</p>
             </div>
           </div>
         </div>
@@ -152,49 +130,35 @@ const ProjectManagement: React.FC = () => {
       {/* Content Section */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Enhanced Main Form */}
+          {/* Main Form */}
           <div className="lg:col-span-2">
-            <Card className="bg-white shadow-2xl border-2 overflow-hidden rounded-2xl" style={{ borderColor: '#D9ECD2' }}>
-              <CardHeader className="border-b-2 p-8" style={{
-                background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)',
-                borderColor: '#D9ECD2'
+            <Card className="bg-white shadow-lg border border-gray-200 rounded-xl overflow-hidden">
+              <CardHeader className="border-b border-gray-200 p-6" style={{
+                background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)'
               }}>
-                <CardTitle className="text-3xl font-header text-slate-900 flex items-center space-x-4">
-                  <div className="p-3 rounded-xl shadow-md" style={{
+                <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3" style={{ fontFamily: 'Georgia, serif' }}>
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
                     background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
                   }}>
-                    <Package className="w-7 h-7 text-gray-700" />
+                    <Package className="w-5 h-5 text-gray-700" />
                   </div>
                   <div>
                     <span>Create New Project</span>
-                    <div className="text-sm font-normal text-gray-600 mt-1">Add a new pharmaceutical shipment project</div>
+                    <div className="text-sm font-normal text-gray-600 mt-1" style={{ fontFamily: 'Verdana, sans-serif' }}>
+                      Add a new pharmaceutical shipment project
+                    </div>
                   </div>
                 </CardTitle>
-                <CardDescription className="text-gray-600 text-lg mt-4 leading-relaxed">
+                <CardDescription className="text-gray-600 mt-3" style={{ fontFamily: 'Verdana, sans-serif' }}>
                   Fill in the project details below to create a new pharmaceutical shipment tracking project.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="p-10" style={{ backgroundColor: '#FEFFFE' }}>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                  {/* Success/Error Messages */}
-                  {success && (
-                    <div className="flex items-center space-x-2 p-4 rounded-xl" style={{ backgroundColor: '#E4F2E7', border: '1px solid #D9ECD2' }}>
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                      <span className="font-medium text-green-800">{success}</span>
-                    </div>
-                  )}
-
-                  {error && (
-                    <div className="flex items-center space-x-2 p-4 bg-red-50 border border-red-200 rounded-xl">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                      <span className="font-medium text-red-800">{error}</span>
-                    </div>
-                  )}
-
+              <CardContent className="p-6">
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                   {/* Project Information Section */}
                   <div className="space-y-6">
-                    <div className="border-b pb-4" style={{ borderColor: '#E4F2E7' }}>
-                      <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    <div className="border-b border-gray-200 pb-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center" style={{ fontFamily: 'Georgia, serif' }}>
                         <FileText className="w-5 h-5 mr-2 text-gray-600" />
                         Project Information
                       </h3>
@@ -203,17 +167,17 @@ const ProjectManagement: React.FC = () => {
                     {/* Row 1: Project Name, Shipper */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="projectName" className="text-sm font-semibold text-gray-700">
+                        <Label htmlFor="projectName" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Verdana, sans-serif' }}>
                           Project Name *
                         </Label>
                         <Input
                           id="projectName"
                           placeholder="e.g., COVID_Vaccine_Trial_001"
                           {...register('projectName', { required: 'Project name is required' })}
-                          className="h-12"
+                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         />
                         {errors.projectName && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
+                          <p className="text-sm text-red-600 flex items-center space-x-1">
                             <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                             <span>{errors.projectName.message}</span>
                           </p>
@@ -221,17 +185,17 @@ const ProjectManagement: React.FC = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="shipper" className="text-sm font-semibold text-gray-700">
+                        <Label htmlFor="shipper" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Verdana, sans-serif' }}>
                           Shipper *
                         </Label>
                         <Input
                           id="shipper"
                           placeholder="e.g., DHL Logistics"
                           {...register('shipper', { required: 'Shipper is required' })}
-                          className="h-12"
+                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         />
                         {errors.shipper && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
+                          <p className="text-sm text-red-600 flex items-center space-x-1">
                             <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                             <span>{errors.shipper.message}</span>
                           </p>
@@ -587,24 +551,24 @@ const ProjectManagement: React.FC = () => {
                     </div>
 
                     {/* Submit Button */}
-                    <div className="flex justify-center pt-8 border-t" style={{ borderColor: '#E4F2E7' }}>
+                    <div className="flex justify-center pt-6 border-t" style={{ borderColor: '#E4F2E7' }}>
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="px-12 py-4 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-base text-gray-700 hover:text-gray-800"
+                        className="px-8 py-3 font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-gray-700 hover:text-gray-800"
                         style={{
                           background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 50%, #E4F2E7 100%)',
                           border: '1px solid #D9ECD2'
                         }}
                       >
                         {isLoading ? (
-                          <div className="flex items-center space-x-3">
-                            <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                          <div className="flex items-center space-x-2">
+                            <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
                             <span>Creating Project...</span>
                           </div>
                         ) : (
-                          <div className="flex items-center space-x-3">
-                            <Package className="w-5 h-5" />
+                          <div className="flex items-center space-x-2">
+                            <Package className="w-4 h-4" />
                             <span>Create Project</span>
                           </div>
                         )}
@@ -620,36 +584,40 @@ const ProjectManagement: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
               {/* Project Guidelines Card */}
-              <Card className="bg-white shadow-xl border-2 rounded-2xl" style={{ borderColor: '#D9ECD2' }}>
-                <CardHeader style={{ background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)' }}>
-                  <CardTitle className="text-lg font-header text-slate-900 flex items-center space-x-2">
-                    <div className="p-1 rounded-lg" style={{ backgroundColor: '#D9ECD2' }}>
+              <Card className="bg-white shadow-lg border border-gray-200 rounded-xl">
+                <CardHeader className="border-b border-gray-200 p-4" style={{
+                  background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)'
+                }}>
+                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center space-x-2" style={{ fontFamily: 'Georgia, serif' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+                      background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
+                    }}>
                       <FileText className="w-4 h-4 text-gray-700" />
                     </div>
                     <span>Project Guidelines</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="p-4">
                   <div className="space-y-4">
                     <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: '#AEE0E8' }}></div>
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2"></div>
                       <div>
-                        <p className="font-medium text-gray-900">Project Naming</p>
-                        <p className="text-sm text-gray-600">Use descriptive names with underscores</p>
+                        <p className="font-medium text-gray-900 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>Project Naming</p>
+                        <p className="text-xs text-gray-600">Use descriptive names with underscores</p>
                       </div>
                     </div>
                     <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: '#D9ECD2' }}></div>
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full mt-2"></div>
                       <div>
-                        <p className="font-medium text-gray-900">Date Format</p>
-                        <p className="text-sm text-gray-600">All dates should be in DD-MM-YYYY format</p>
+                        <p className="font-medium text-gray-900 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>Date Format</p>
+                        <p className="text-xs text-gray-600">All dates should be in DD-MM-YYYY format</p>
                       </div>
                     </div>
                     <div className="flex items-start space-x-3">
-                      <div className="w-2 h-2 rounded-full mt-2" style={{ backgroundColor: '#E4F2E7' }}></div>
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2"></div>
                       <div>
-                        <p className="font-medium text-gray-900">PDF Requirements</p>
-                        <p className="text-sm text-gray-600">Upload clear, legible shipment documents</p>
+                        <p className="font-medium text-gray-900 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>PDF Requirements</p>
+                        <p className="text-xs text-gray-600">Upload clear, legible shipment documents</p>
                       </div>
                     </div>
                   </div>
@@ -657,28 +625,32 @@ const ProjectManagement: React.FC = () => {
               </Card>
 
               {/* Quick Stats Card */}
-              <Card className="bg-white shadow-xl border-2 rounded-2xl" style={{ borderColor: '#D9ECD2' }}>
-                <CardHeader style={{ background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)' }}>
-                  <CardTitle className="text-lg font-header text-slate-900 flex items-center space-x-2">
-                    <div className="p-1 rounded-lg" style={{ backgroundColor: '#D9ECD2' }}>
+              <Card className="bg-white shadow-lg border border-gray-200 rounded-xl">
+                <CardHeader className="border-b border-gray-200 p-4" style={{
+                  background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)'
+                }}>
+                  <CardTitle className="text-lg font-semibold text-gray-900 flex items-center space-x-2" style={{ fontFamily: 'Georgia, serif' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+                      background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
+                    }}>
                       <Calendar className="w-4 h-4 text-gray-700" />
                     </div>
                     <span>Quick Stats</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="space-y-4">
+                <CardContent className="p-4">
+                  <div className="space-y-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Active Projects</span>
-                      <span className="font-bold text-2xl text-gray-900">24</span>
+                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>Active Projects</span>
+                      <span className="font-semibold text-slate-900">24</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">This Month</span>
-                      <span className="font-bold text-2xl text-gray-900">8</span>
+                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>This Month</span>
+                      <span className="font-semibold text-green-600">8</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Pending Review</span>
-                      <span className="font-bold text-2xl text-gray-900">3</span>
+                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>Pending Review</span>
+                      <span className="font-semibold text-purple-600">3</span>
                     </div>
                   </div>
                 </CardContent>

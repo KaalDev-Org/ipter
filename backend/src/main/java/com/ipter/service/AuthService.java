@@ -113,7 +113,7 @@ public class AuthService {
             auditService.logUserLogin(user, null, null);
 
             return new LoginResponse(token, user.getId(), user.getUsername(),
-                                   user.getEmail(), user.getRole(), expiresIn);
+                                   user.getEmail(), user.getRole(), expiresIn, user.isMustChangePassword());
             
         } catch (AuthenticationException e) {
             // Increment failed login attempts
