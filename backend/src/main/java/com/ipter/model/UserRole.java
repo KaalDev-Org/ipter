@@ -8,14 +8,14 @@ public enum UserRole {
      * Regular user with basic permissions
      */
     USER,
-    
+
     /**
-     * Super user with advanced permissions
+     * Reviewer with review and validation permissions
      */
-    SUPER_USER,
-    
+    REVIEWER,
+
     /**
      * Administrator with full system access
      */
-    ADMIN
+    ADMINISTRATOR
 }

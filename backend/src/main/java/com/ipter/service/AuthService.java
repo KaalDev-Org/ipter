@@ -1,12 +1,8 @@
 package com.ipter.service;
 
-import com.ipter.dto.LoginRequest;
-import com.ipter.dto.LoginResponse;
-import com.ipter.dto.RegisterRequest;
-import com.ipter.model.User;
-import com.ipter.model.UserRole;
-import com.ipter.repository.UserRepository;
-import com.ipter.util.JwtUtil;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -17,8 +13,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.Optional;
+import com.ipter.dto.ChangePasswordRequest;
+import com.ipter.dto.LoginRequest;
+import com.ipter.dto.LoginResponse;
+import com.ipter.dto.RegisterRequest;
+import com.ipter.model.User;
+import com.ipter.model.UserRole;
+import com.ipter.repository.UserRepository;
+import com.ipter.util.JwtUtil;
 
 /**
  * Authentication service for user login, registration, and token management
@@ -41,6 +43,9 @@ public class AuthService {
     
     @Autowired
     private SessionManagementService sessionManagementService;
+
+    @Autowired
+    private AuditService auditService;
     
     /**
      * Register a new user
@@ -103,13 +108,16 @@ public class AuthService {
             
             // Calculate token expiration time
             long expiresIn = jwtUtil.getTokenRemainingTime(token);
-            
-            return new LoginResponse(token, user.getId(), user.getUsername(), 
-                                   user.getEmail(), user.getRole(), expiresIn);
+
+            // Log successful login
+            auditService.logUserLogin(user, null, null);
+
+            return new LoginResponse(token, user.getId(), user.getUsername(),
+                                   user.getEmail(), user.getRole(), expiresIn, user.isMustChangePassword());
             
         } catch (AuthenticationException e) {
             // Increment failed login attempts
-            Optional<User> userOpt = userRepository.findByUsernameOrEmail(request.getUsername());
+            Optional<User> userOpt = userRepository.findByUsernameOrLoginIdOrEmail(request.getUsername());
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
                 user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
@@ -184,5 +192,34 @@ public class AuthService {
         }
         
         return user;
+    }
+
+    /**
+     * Change user password
+     */
+    @Transactional
+    public void changePassword(String token, ChangePasswordRequest request) throws Exception {
+        // Validate passwords match
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new Exception("New password and confirmation do not match");
+        }
+
+        // Get current user
+        User user = getCurrentUser(token);
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new Exception("Current password is incorrect");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setMustChangePassword(false); // Clear force change flag
+        user.setUpdatedAt(LocalDateTime.now());
+
+        userRepository.save(user);
+
+        // Log password change
+        auditService.logPasswordChange(user);
     }
 }

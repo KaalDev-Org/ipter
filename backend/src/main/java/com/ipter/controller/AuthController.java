@@ -1,18 +1,27 @@
 package com.ipter.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.ipter.dto.ChangePasswordRequest;
 import com.ipter.dto.LoginRequest;
 import com.ipter.dto.LoginResponse;
 import com.ipter.dto.RegisterRequest;
 import com.ipter.model.User;
 import com.ipter.service.AuthService;
 import com.ipter.service.SessionManagementService;
-import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
+import jakarta.validation.Valid;
 
 /**
  * Authentication controller for login, registration, and token management
@@ -82,6 +91,9 @@ public class AuthController {
             response.put("isActive", user.isActive());
             response.put("lastLogin", user.getLastLogin());
             response.put("createdAt", user.getCreatedAt());
+            response.put("canViewAuditTrail", user.isCanViewAuditTrail());
+            response.put("canCreateProjects", user.isCanCreateProjects());
+            response.put("canViewReports", user.isCanViewReports());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -165,5 +177,27 @@ public class AuthController {
         response.put("availableSlots", sessionManagementService.getAvailableSlots());
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Change password endpoint
+     */
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(@RequestHeader("Authorization") String token,
+                                           @Valid @RequestBody ChangePasswordRequest request) {
+        try {
+            // Remove "Bearer " prefix
+            String jwtToken = token.substring(7);
+            authService.changePassword(jwtToken, request);
+
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Password changed successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
     }
 }
