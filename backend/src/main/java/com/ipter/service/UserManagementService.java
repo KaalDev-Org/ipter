@@ -287,4 +287,17 @@ public class UserManagementService {
                 .map(UserResponse::new)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Check if user can create projects
+     */
+    public boolean canCreateProjects(String username) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return false;
+        }
+
+        User user = userOpt.get();
+        return user.isActive() && user.isCanCreateProjects();
+    }
 }
