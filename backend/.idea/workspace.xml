@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="44e08c4e-2bc8-4cce-9d05-9ee5dceb1244" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../IPTER_Backend_API_Tests.postman_collection.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ipter.lock.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/data/ipter.mv.db" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/config/SecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/config/SecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/controller/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/model/User.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/model/User.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/model/UserRole.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/model/UserRole.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/repository/UserRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/repository/UserRepository.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/service/AuthService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/service/DataInitializationService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/service/DataInitializationService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/service/UserDetailsServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/service/UserDetailsServiceImpl.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.properties" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/application.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/IpterApplication.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/config/SecurityConfig.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/controller/AuthController.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/dto/LoginRequest.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/dto/LoginResponse.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/dto/RegisterRequest.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/ExtractedData.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/ExtractionType.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/Image.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/ProcessingStatus.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/Project.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/ProjectStatus.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/User.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/UserRole.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/model/ValidationStatus.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/repository/ExtractedDataRepository.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/repository/ImageRepository.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/repository/ProjectRepository.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/repository/UserRepository.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/security/JwtAuthenticationEntryPoint.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/security/JwtAuthenticationFilter.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/service/AuthService.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/service/DataInitializationService.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/service/SessionManagementService$UserSession.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/service/SessionManagementService.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/service/UserDetailsServiceImpl.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/ipter/util/JwtUtil.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/ipter-backend-1.0.0.jar" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/ipter-backend-1.0.0.jar.original" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-archiver/pom.properties" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../test-api.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../test-api.sh" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 5
+}]]></component>
+  <component name="ProjectId" id="31ULfGMrzNpGLhDV45snnuOkQf9" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "enhancement-usermanagement"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="44e08c4e-2bc8-4cce-9d05-9ee5dceb1244" name="Changes" comment="" />
+      <created>1755573807725</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1755573807725</updated>
+    </task>
+    <servers />
+  </component>
+</project>

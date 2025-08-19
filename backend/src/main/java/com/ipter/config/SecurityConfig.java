@@ -105,11 +105,10 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**").permitAll()
                 
                 // Admin only endpoints
-                .requestMatchers("/admin/**").hasRole("ADMIN")
-                .requestMatchers("/users/create").hasRole("ADMIN")
-                .requestMatchers("/users/*/activate").hasRole("ADMIN")
-                .requestMatchers("/users/*/deactivate").hasRole("ADMIN")
-                .requestMatchers("/sessions/**").hasRole("ADMIN")
+                .requestMatchers("/admin/**").hasRole("ADMINISTRATOR")
+                .requestMatchers("/users/**").hasRole("ADMINISTRATOR")
+                .requestMatchers("/audit/**").hasRole("ADMINISTRATOR")
+                .requestMatchers("/sessions/**").hasRole("ADMINISTRATOR")
                 
                 // Super user and admin endpoints
                 .requestMatchers("/projects/*/delete").hasAnyRole("SUPER_USER", "ADMIN")
