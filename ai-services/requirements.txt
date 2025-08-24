@@ -1,0 +1,19 @@
+# FastAPI and server dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Image processing and OCR
+pillow==9.5.0
+opencv-python==4.8.1.78
+pytesseract==0.3.10
+numpy==1.24.3
+
+# Data validation and serialization
+pydantic==2.5.0
+
+# HTTP client for external services
+requests==2.31.0
+
+# Environment configuration
+python-dotenv==1.0.0

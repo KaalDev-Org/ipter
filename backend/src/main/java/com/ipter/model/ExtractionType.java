@@ -22,5 +22,7 @@ public enum ExtractionType {
     /**
      * Machine learning based extraction
      */
-    ML_EXTRACTION
+    ML_EXTRACTION,
+
+    CONTAINER_NUMBER
 }

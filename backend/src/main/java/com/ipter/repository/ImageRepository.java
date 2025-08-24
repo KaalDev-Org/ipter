@@ -25,6 +25,8 @@ public interface ImageRepository extends JpaRepository<Image, UUID> {
      * Find images by project
      */
     List<Image> findByProject(Project project);
+
+    List<Image> findByProjectIdOrderByUploadedAtDesc(UUID projectId);
     
     /**
      * Find images by project with pagination

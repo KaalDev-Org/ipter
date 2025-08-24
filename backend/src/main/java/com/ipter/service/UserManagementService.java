@@ -287,4 +287,13 @@ public class UserManagementService {
                 .map(UserResponse::new)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Find user by username (for internal use)
+     */
+    @Transactional(readOnly = true)
+    public User findByUsername(String username) throws Exception {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new Exception("User not found with username: " + username));
+    }
 }
