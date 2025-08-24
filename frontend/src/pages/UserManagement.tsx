@@ -20,7 +20,7 @@ import { UserPlus, Users, Eye, EyeOff, Loader2, Shield, Building, MapPin, User, 
 const createUserSchema = z.object({
   username: z.string().min(1, 'Username is required').min(3, 'Username must be at least 3 characters'),
   loginId: z.string().min(1, 'Login ID is required').min(3, 'Login ID must be at least 3 characters'),
-  email: z.string().email('Please enter a valid email address'),
+
   password: z.string().min(6, 'Password must be at least 6 characters'),
   role: z.nativeEnum(UserRole),
   organization: z.string().min(1, 'Organization is required'),
@@ -33,7 +33,7 @@ const createUserSchema = z.object({
 });
 
 const updateUserSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+
   role: z.nativeEnum(UserRole),
   organization: z.string().optional(),
   designation: z.string().optional(),
@@ -121,7 +121,6 @@ const UserManagement: React.FC = () => {
       const matchesSearch =
         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.loginId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (user.designation && user.designation.toLowerCase().includes(searchTerm.toLowerCase()));
 
       const matchesStatus = statusFilter === 'all' ||
@@ -178,7 +177,7 @@ const UserManagement: React.FC = () => {
       const createUserData: CreateUserRequest = {
         username: data.username,
         loginId: data.loginId,
-        email: data.email,
+        email: `${data.username}@ipter.local`, // Generate default email based on username
         password: data.password,
         role: data.role,
         organization: data.organization,
@@ -187,7 +186,7 @@ const UserManagement: React.FC = () => {
         canViewAuditTrail: data.canViewAuditTrail,
         canCreateProjects: data.canCreateProjects,
         canViewReports: data.canViewReports,
-        mustChangePassword: data.mustChangePassword,
+        mustChangePassword: true, // Always force password change on user creation
       };
 
       const response = await userAPI.createUser(createUserData);
@@ -206,8 +205,30 @@ const UserManagement: React.FC = () => {
 
     } catch (err: any) {
       console.error('Failed to create user:', err);
-      const errorMessage = err.response?.data?.error || 'Failed to create user. Please try again.';
+
+      // More detailed error handling
+      let errorMessage = 'Failed to create user. Please try again.';
+
+      if (err.response) {
+        // Server responded with error status
+        if (err.response.status === 401) {
+          errorMessage = 'Authentication failed. Please log in again.';
+        } else if (err.response.status === 403) {
+          errorMessage = 'You do not have permission to create users.';
+        } else if (err.response.status === 409) {
+          errorMessage = 'A user with this username or login ID already exists.';
+        } else if (err.response.data?.error) {
+          errorMessage = err.response.data.error;
+        } else if (err.response.data?.message) {
+          errorMessage = err.response.data.message;
+        }
+      } else if (err.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your connection and try again.';
+      }
+
       setError(errorMessage);
+      showToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -345,7 +366,6 @@ const UserManagement: React.FC = () => {
   const openEditUserDialog = (user: UserResponse) => {
     setSelectedUser(user);
     // Pre-populate the form with current user data
-    setEditValue('email', user.email);
     setEditValue('role', user.role);
     setEditValue('organization', user.organization || '');
     setEditValue('designation', user.designation || '');
@@ -384,36 +404,31 @@ const UserManagement: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-z-ivory via-z-light-green to-z-pale-green">
+    <div className="min-h-screen bg-z-ivory">
       {/* Clean Header Section */}
-      <div className="bg-white border-b" style={{ borderColor: '#D9ECD2' }}>
+      <div className="bg-z-pale-green shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             {/* Left Content */}
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{
-                background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-              }}>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white/80">
                 <Users className="w-6 h-6 text-gray-700" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 font-georgia">User Management</h1>
-                <p className="text-gray-600 font-verdana">Manage user accounts and permissions</p>
+                <h1 className="text-3xl font-bold text-gray-900 font-header">User Management</h1>
+                <p className="text-gray-600 font-body">Manage user accounts and permissions</p>
               </div>
             </div>
 
             {/* Right Content - Modern Toggle Switch */}
             <div className="mt-6 lg:mt-0">
-              <div className="relative inline-flex items-center bg-white rounded-xl p-1 shadow-lg border-2" style={{
-                borderColor: '#D9ECD2'
-              }}>
+              <div className="relative inline-flex items-center bg-white rounded-xl p-1 shadow-lg border-2 border-z-pale-green">
                 {/* Active background slider */}
                 <div
-                  className="absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-out shadow-sm"
+                  className="absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-out shadow-sm bg-z-sky"
                   style={{
                     left: activeTab === 'create' ? '4px' : 'calc(50% - 2px)',
                     width: 'calc(50% - 2px)',
-                    background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)',
                   }}
                 />
 
@@ -453,15 +468,10 @@ const UserManagement: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Form */}
             <div className="lg:col-span-2">
-              <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0 overflow-hidden">
-                <CardHeader className="border-b" style={{
-                  background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)',
-                  borderColor: '#D9ECD2'
-                }}>
+              <Card className="bg-z-light-green backdrop-blur-sm shadow-2xl border-0 overflow-hidden">
+                <CardHeader className="border-b bg-z-pale-green border-z-pale-green">
                   <CardTitle className="text-2xl font-header text-slate-900 flex items-center space-x-3">
-                    <div className="p-2 rounded-lg" style={{
-                      background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-                    }}>
+                    <div className="p-2 rounded-lg bg-white/80">
                       <UserPlus className="w-6 h-6 text-gray-700" />
                     </div>
                     <span>Create New User</span>
@@ -472,19 +482,19 @@ const UserManagement: React.FC = () => {
                 </CardHeader>
                 <CardContent className="p-8">
                   <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-                    {/* Account Information Section */}
+                    {/* Account Information & Role Section - 4 Field Grid */}
                     <div className="space-y-6">
                       <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <User className="w-5 h-5 text-blue-600" />
+                        <div className="p-2 bg-white/60 rounded-lg">
+                          <User className="w-4 h-4 text-gray-700" />
                         </div>
                         <h3 className="text-lg font-semibold text-slate-900">Account Information</h3>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Username */}
-                        <div className="space-y-3">
-                          <Label htmlFor="username" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="username" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
                             <span>Username</span>
                             <span className="text-red-500">*</span>
                           </Label>
@@ -492,15 +502,15 @@ const UserManagement: React.FC = () => {
                             <Input
                               id="username"
                               type="text"
-                              placeholder="john_doe123"
+                              placeholder="admin"
                               {...register('username')}
-                              className={`h-12 pl-4 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                              className={`h-9 pl-3 pr-3 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
                                 errors.username ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
                               }`}
                             />
                           </div>
                           {errors.username && (
-                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
                               <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                               <span>{errors.username?.message}</span>
                             </p>
@@ -508,8 +518,8 @@ const UserManagement: React.FC = () => {
                         </div>
 
                         {/* Login ID */}
-                        <div className="space-y-3">
-                          <Label htmlFor="loginId" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="loginId" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
                             <span>Login ID</span>
                             <span className="text-red-500">*</span>
                           </Label>
@@ -519,126 +529,76 @@ const UserManagement: React.FC = () => {
                               type="text"
                               placeholder="jdoe01"
                               {...register('loginId')}
-                              className={`h-12 pl-4 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                              className={`h-9 pl-3 pr-3 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
                                 errors.loginId ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
                               }`}
                             />
                           </div>
                           {errors.loginId && (
-                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
                               <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                               <span>{errors.loginId?.message}</span>
                             </p>
                           )}
                         </div>
-                      </div>
 
-                      {/* Email */}
-                      <div className="space-y-3">
-                        <Label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                          <span>Email Address</span>
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="john.doe@zuelligpharma.com"
-                            {...register('email')}
-                            className={`h-12 pl-4 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
-                              errors.email ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          />
-                        </div>
-                        {errors.email && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.email?.message}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Security Section */}
-                    <div className="space-y-6">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-green-50 rounded-lg">
-                          <Key className="w-5 h-5 text-green-600" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-slate-900">Security</h3>
-                      </div>
-
-                      {/* Password */}
-                      <div className="space-y-3">
-                        <Label htmlFor="password" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                          <span>Password</span>
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            id="password"
-                            type={showPassword ? 'text' : 'password'}
-                            placeholder="StrongP@ssw0rd!"
-                            {...register('password')}
-                            className={`h-12 pl-4 pr-12 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
-                              errors.password ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
-                            }`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
-                          >
-                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                          </button>
-                        </div>
-                        {errors.password && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.password?.message}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Role & Status Section */}
-                    <div className="space-y-6">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                          <Shield className="w-5 h-5 text-purple-600" />
-                        </div>
-                        <h3 className="text-lg font-semibold text-slate-900">Role & Access</h3>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {/* Role */}
-                        <div className="space-y-3">
-                          <Label htmlFor="role" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="role" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
                             <span>Role</span>
                             <span className="text-red-500">*</span>
                           </Label>
                           <Select onValueChange={(value) => setValue('role', value as UserRole)} defaultValue={UserRole.USER}>
-                            <SelectTrigger className={`h-12 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                            <SelectTrigger className={`h-9 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
                               errors.role ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
                             }`}>
                               <SelectValue placeholder="Select a role" />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl border-0 shadow-xl">
+                            <SelectContent className="rounded-lg border-0 shadow-xl">
                               <SelectItem value={UserRole.USER} className="rounded-lg">User</SelectItem>
                               <SelectItem value={UserRole.REVIEWER} className="rounded-lg">Reviewer</SelectItem>
                               <SelectItem value={UserRole.ADMINISTRATOR} className="rounded-lg">Administrator</SelectItem>
                             </SelectContent>
                           </Select>
                           {errors.role && (
-                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
                               <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                               <span>{errors.role?.message}</span>
                             </p>
                           )}
                         </div>
 
-                        {/* Status */}
-
+                        {/* Password */}
+                        <div className="space-y-2">
+                          <Label htmlFor="password" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                            <span>Password</span>
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              id="password"
+                              type={showPassword ? 'text' : 'password'}
+                              placeholder="••••••••"
+                              {...register('password')}
+                              className={`h-9 pl-3 pr-10 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                                errors.password ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                            >
+                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </button>
+                          </div>
+                          {errors.password && (
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
+                              <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                              <span>{errors.password?.message}</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -651,10 +611,10 @@ const UserManagement: React.FC = () => {
                         <h3 className="text-lg font-semibold text-slate-900">Organization Details</h3>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         {/* Organization */}
-                        <div className="space-y-3">
-                          <Label htmlFor="organization" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="organization" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
                             <span>Organization</span>
                             <span className="text-red-500">*</span>
                           </Label>
@@ -663,12 +623,12 @@ const UserManagement: React.FC = () => {
                             type="text"
                             placeholder="Zuellig Pharma"
                             {...register('organization')}
-                            className={`h-12 pl-4 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                            className={`h-9 pl-3 pr-3 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
                               errors.organization ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
                             }`}
                           />
                           {errors.organization && (
-                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
                               <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                               <span>{errors.organization?.message}</span>
                             </p>
@@ -676,8 +636,8 @@ const UserManagement: React.FC = () => {
                         </div>
 
                         {/* Designation */}
-                        <div className="space-y-3">
-                          <Label htmlFor="designation" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="designation" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
                             <span>Designation</span>
                             <span className="text-red-500">*</span>
                           </Label>
@@ -686,40 +646,41 @@ const UserManagement: React.FC = () => {
                             type="text"
                             placeholder="Manager"
                             {...register('designation')}
-                            className={`h-12 pl-4 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                            className={`h-9 pl-3 pr-3 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
                               errors.designation ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
                             }`}
                           />
                           {errors.designation && (
-                            <p className="text-sm text-red-500 flex items-center space-x-1">
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
                               <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                               <span>{errors.designation?.message}</span>
                             </p>
                           )}
                         </div>
-                      </div>
 
-                      {/* Address */}
-                      <div className="space-y-3">
-                        <Label htmlFor="address" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                          <MapPin className="w-4 h-4" />
-                          <span>Address</span>
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Textarea
-                          id="address"
-                          placeholder="Changi Plant, Singapore"
-                          {...register('address')}
-                          className={`min-h-[100px] border-2 rounded-xl transition-all duration-300 focus:border-z-sky focus:ring-4 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm resize-none ${
-                            errors.address ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        />
-                        {errors.address && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.address?.message}</span>
-                          </p>
-                        )}
+                        {/* Address */}
+                        <div className="space-y-2">
+                          <Label htmlFor="address" className="text-sm font-medium text-gray-700 flex items-center space-x-2">
+                            <MapPin className="w-4 h-4" />
+                            <span>Address</span>
+                            <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="address"
+                            type="text"
+                            placeholder="Changi Plant, Singapore"
+                            {...register('address')}
+                            className={`h-9 pl-3 pr-3 border-2 rounded-lg transition-all duration-300 focus:border-z-sky focus:ring-2 focus:ring-z-sky/10 bg-white/80 backdrop-blur-sm ${
+                              errors.address ? 'border-red-400 focus:border-red-400 focus:ring-red-100' : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          />
+                          {errors.address && (
+                            <p className="text-xs text-red-500 flex items-center space-x-1">
+                              <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                              <span>{errors.address?.message}</span>
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -778,20 +739,7 @@ const UserManagement: React.FC = () => {
                           />
                         </div>
 
-                        <div className="flex items-center justify-between p-6 bg-gradient-to-r from-orange-50 to-red-50 rounded-xl border border-orange-100">
-                          <div className="space-y-1">
-                            <Label htmlFor="mustChangePassword" className="text-sm font-semibold text-gray-800">
-                              Force Password Change
-                            </Label>
-                            <p className="text-xs text-gray-600">Require user to change password on first login</p>
-                          </div>
-                          <Switch
-                            id="mustChangePassword"
-                            checked={watch('mustChangePassword')}
-                            onCheckedChange={(checked) => setValue('mustChangePassword', checked)}
-                            className="data-[state=checked]:bg-orange-600"
-                          />
-                        </div>
+                        {/* Force Password Change is now automatically enabled for all new users */}
                       </div>
                     </div>
 
@@ -802,11 +750,7 @@ const UserManagement: React.FC = () => {
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="px-12 py-4 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-base text-gray-700 hover:text-gray-800"
-                        style={{
-                          background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 50%, #E4F2E7 100%)',
-                          border: '1px solid #D9ECD2'
-                        }}
+                        className="px-12 py-4 font-semibold shadow-lg hover:shadow-xl transition-all duration-300 rounded-xl text-base text-gray-700 hover:text-gray-800 bg-z-light-green border border-z-pale-green"
                       >
                         {isLoading ? (
                           <div className="flex items-center space-x-3">
@@ -830,10 +774,10 @@ const UserManagement: React.FC = () => {
             <div className="lg:col-span-1">
               <div className="sticky top-8 space-y-6">
                 {/* Quick Tips Card */}
-                <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
-                  <CardHeader style={{ background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)' }}>
+                <Card className="bg-z-light-green backdrop-blur-sm shadow-xl border-0">
+                  <CardHeader className="bg-z-pale-green">
                     <CardTitle className="text-lg font-header text-slate-900 flex items-center space-x-2">
-                      <div className="p-1 rounded-lg" style={{ backgroundColor: '#D9ECD2' }}>
+                      <div className="p-1 rounded-lg bg-z-pale-green">
                         <Settings className="w-4 h-4 text-gray-700" />
                       </div>
                       <span>Quick Tips</span>
@@ -858,11 +802,11 @@ const UserManagement: React.FC = () => {
                 </Card>
 
                 {/* User Stats Card */}
-                <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
-                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
+                <Card className="bg-z-light-green backdrop-blur-sm shadow-xl border-0">
+                  <CardHeader className="bg-z-pale-green">
                     <CardTitle className="text-lg font-header text-slate-900 flex items-center space-x-2">
-                      <div className="p-1 bg-green-100 rounded-lg">
-                        <Users className="w-4 h-4 text-green-600" />
+                      <div className="p-1 bg-z-pale-green rounded-lg">
+                        <Users className="w-4 h-4 text-gray-700" />
                       </div>
                       <span>User Statistics</span>
                     </CardTitle>
@@ -889,7 +833,7 @@ const UserManagement: React.FC = () => {
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Reviewers</span>
-                          <span className="font-semibold text-blue-600">{userStats?.reviewerUsers || 0}</span>
+                          <span className="font-semibold text-teal-600">{userStats?.reviewerUsers || 0}</span>
                         </div>
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-600">Regular Users</span>
@@ -911,14 +855,14 @@ const UserManagement: React.FC = () => {
         {activeTab === 'view' && (
           <div className="space-y-6">
             {/* Search and Filter Section */}
-            <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
+            <Card className="bg-z-ivory backdrop-blur-sm shadow-xl border-0">
               <CardContent className="p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   {/* Search */}
                   <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                     <Input
-                      placeholder="Search users by name, email, or designation..."
+                      placeholder="Search users by name, login ID, or designation..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 h-12 rounded-xl"
@@ -971,14 +915,14 @@ const UserManagement: React.FC = () => {
             </Card>
 
             {/* Users Table */}
-            <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0 overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-b border-gray-100">
+            <Card className="bg-z-ivory backdrop-blur-sm shadow-xl border-0 overflow-hidden">
+              <CardHeader className="bg-z-pale-green border-b border-gray-100">
                 <CardTitle className="text-xl font-header text-slate-900 flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg">
-                    <Users className="w-5 h-5 text-white" />
+                  <div className="p-2 bg-z-light-green rounded-lg">
+                    <Users className="w-5 h-5 text-gray-700" />
                   </div>
                   <span>User Directory</span>
-                  <div className="ml-auto bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                  <div className="ml-auto bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-sm font-medium">
                     {filteredUsers.length} users
                   </div>
                 </CardTitle>
@@ -1005,7 +949,7 @@ const UserManagement: React.FC = () => {
                           <th className="px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider" style={{width: '12%'}}>Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-z-light-green divide-y divide-gray-200">
                         {filteredUsers.map((tableUser, index) => {
                           const { date, time } = formatDate(tableUser.createdAt);
                           return (
@@ -1020,7 +964,6 @@ const UserManagement: React.FC = () => {
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="font-semibold text-gray-900 text-sm truncate">{tableUser.username}</div>
-                                    <div className="text-xs text-gray-500 truncate">{tableUser.email}</div>
                                     <div className="text-xs text-gray-400 truncate">ID: {tableUser.loginId}</div>
                                   </div>
                                 </div>
@@ -1031,7 +974,7 @@ const UserManagement: React.FC = () => {
                                 <div className="space-y-1">
                                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                     tableUser.role === UserRole.ADMINISTRATOR ? 'bg-purple-100 text-purple-800' :
-                                    tableUser.role === UserRole.REVIEWER ? 'bg-blue-100 text-blue-800' :
+                                    tableUser.role === UserRole.REVIEWER ? 'bg-teal-100 text-teal-800' :
                                     'bg-gray-100 text-gray-800'
                                   }`}>
                                     {tableUser.role}
@@ -1050,7 +993,7 @@ const UserManagement: React.FC = () => {
                                     </span>
                                   )}
                                   {tableUser.canCreateProjects && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-800 w-fit">
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-teal-100 text-teal-800 w-fit">
                                       Projects
                                     </span>
                                   )}
@@ -1242,23 +1185,6 @@ const UserManagement: React.FC = () => {
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Email */}
-                <div className="space-y-2">
-                  <Label htmlFor="edit-email" className="text-sm font-medium text-gray-700">
-                    Email Address *
-                  </Label>
-                  <Input
-                    id="edit-email"
-                    type="email"
-                    {...registerEdit('email')}
-                    className="w-full"
-                    placeholder="user@example.com"
-                  />
-                  {editErrors.email && (
-                    <p className="text-red-600 text-sm">{editErrors.email.message}</p>
-                  )}
-                </div>
-
                 {/* Role */}
                 <div className="space-y-2">
                   <Label htmlFor="edit-role" className="text-sm font-medium text-gray-700">
@@ -1391,11 +1317,7 @@ const UserManagement: React.FC = () => {
                 <Button
                   type="submit"
                   disabled={editUserLoading}
-                  className="text-gray-700 hover:text-gray-800"
-                  style={{
-                    background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 50%, #E4F2E7 100%)',
-                    border: '1px solid #D9ECD2'
-                  }}
+                  className="text-gray-700 hover:text-gray-800 bg-z-light-green border border-z-pale-green"
                 >
                   {editUserLoading ? (
                     <>
@@ -1436,10 +1358,7 @@ const UserManagement: React.FC = () => {
                   <Label className="text-sm font-medium text-gray-500">Login ID</Label>
                   <p className="text-sm">{selectedUser.loginId}</p>
                 </div>
-                <div>
-                  <Label className="text-sm font-medium text-gray-500">Email</Label>
-                  <p className="text-sm">{selectedUser.email}</p>
-                </div>
+
                 <div>
                   <Label className="text-sm font-medium text-gray-500">Role</Label>
                   <p className="text-sm">{selectedUser.role}</p>
@@ -1496,7 +1415,7 @@ const UserManagement: React.FC = () => {
                     </span>
                   )}
                   {selectedUser.canCreateProjects && (
-                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
+                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-teal-100 text-teal-800">
                       Create Projects
                     </span>
                   )}

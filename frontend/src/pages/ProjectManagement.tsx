@@ -8,24 +8,22 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useToast } from '../components/ui/toast';
 import { FolderOpen, Upload, FileText, Calendar, Package, Truck, FileCheck, X, CheckCircle } from 'lucide-react';
+import { projectAPI, CreateProjectRequest, authAPI } from '../services/api';
 
 interface ProjectFormData {
-  projectName: string;
+  name: string;
   shipper: string;
-  invoiceNumber: string;
+  invoice: string;
   compound: string;
   quantity: number;
   expDate: string;
   shipmentId: string;
   remarks: string;
-  status: 'Open' | 'Closed';
   description: string;
   invoiceDate: string;
   packageLot: string;
   protocol: string;
   site: string;
-  creationDate: string;
-  shipmentPdf?: FileList;
 }
 
 const ProjectManagement: React.FC = () => {
@@ -41,28 +39,71 @@ const ProjectManagement: React.FC = () => {
     setValue,
     watch,
     reset
-  } = useForm<ProjectFormData>({
-    defaultValues: {
-      status: 'Open',
-      creationDate: new Date().toISOString().split('T')[0]
-    }
-  });
+  } = useForm<ProjectFormData>();
 
   const onSubmit = async (data: ProjectFormData) => {
     setIsLoading(true);
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Prepare the request data
+      const projectData: CreateProjectRequest = {
+        name: data.name,
+        description: data.description,
+        shipper: data.shipper,
+        invoice: data.invoice,
+        compound: data.compound,
+        quantity: data.quantity,
+        expDate: data.expDate,
+        shipmentId: data.shipmentId,
+        packageLot: data.packageLot,
+        protocol: data.protocol,
+        site: data.site,
+        invoiceDate: data.invoiceDate,
+        remarks: data.remarks,
+      };
 
-      console.log('Project data:', data);
-      console.log('Uploaded file:', uploadedFile);
+      // Step 1: Create the project
+      const response = await projectAPI.createProject(projectData);
+      const projectId = response.project.id;
 
-      showToast('Project created successfully!', 'success');
+      // Show success toast with project ID and name
+      showToast(
+        `Project "${response.project.name}" created successfully! ID: ${response.project.id}`,
+        'success',
+        7000
+      );
+
+      // Step 2: Process PDF if file was uploaded
+      if (uploadedFile) {
+        try {
+          showToast('Processing PDF file...', 'info');
+
+          // First upload the PDF file
+          await projectAPI.uploadPdfFile(projectId, uploadedFile);
+
+          // Then process the PDF to extract master data
+          const processResult = await projectAPI.processPdfFile(projectId, false);
+
+          if (processResult.result.success) {
+            showToast(`PDF processed successfully! Extracted ${processResult.result.extractedCount} master data entries.`, 'success');
+          } else {
+            showToast(`PDF processing completed with issues: ${processResult.result.message}`, 'error');
+          }
+        } catch (pdfError: any) {
+          console.error('Error processing PDF:', pdfError);
+          showToast(`Project created but PDF processing failed: ${pdfError.response?.data?.error || 'Unknown error'}`, 'error');
+        }
+      }
+
+      // Reset form and uploaded file
       reset();
       setUploadedFile(null);
-    } catch (err) {
-      showToast('Failed to create project. Please try again.', 'error');
+
+      console.log('Project created:', response.project);
+    } catch (err: any) {
+      console.error('Error creating project:', err);
+      const errorMessage = err.response?.data?.error || 'Failed to create project. Please try again.';
+      showToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -108,21 +149,24 @@ const ProjectManagement: React.FC = () => {
     setUploadedFile(null);
   };
 
+
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-z-ivory">
       {/* Header Section - Matching User Management */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-z-pale-green shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg" style={{
-              background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-            }}>
-              <FolderOpen className="w-6 h-6 text-gray-700" />
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center space-x-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg bg-white/80">
+                <FolderOpen className="w-6 h-6 text-gray-700" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 font-header">Project Management</h1>
+                <p className="text-gray-600 font-body">Create and manage pharmaceutical shipment projects</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 font-georgia">Project Management</h1>
-              <p className="text-gray-600 font-verdana">Create and manage pharmaceutical shipment projects</p>
-            </div>
+
           </div>
         </div>
       </div>
@@ -132,19 +176,15 @@ const ProjectManagement: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Form */}
           <div className="lg:col-span-2">
-            <Card className="bg-white shadow-lg border border-gray-200 rounded-xl overflow-hidden">
-              <CardHeader className="border-b border-gray-200 p-6" style={{
-                background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)'
-              }}>
-                <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3" style={{ fontFamily: 'Georgia, serif' }}>
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
-                    background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-                  }}>
+            <Card className="bg-z-light-green shadow-lg border border-gray-200 rounded-xl overflow-hidden">
+              <CardHeader className="border-b border-gray-200 p-6 bg-z-pale-green">
+                <CardTitle className="text-2xl font-bold text-gray-900 flex items-center space-x-3 font-header">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-white/80">
                     <Package className="w-5 h-5 text-gray-700" />
                   </div>
                   <div>
                     <span>Create New Project</span>
-                    <div className="text-sm font-normal text-gray-600 mt-1" style={{ fontFamily: 'Verdana, sans-serif' }}>
+                    <div className="text-sm font-normal text-gray-600 mt-1 font-body">
                       Add a new pharmaceutical shipment project
                     </div>
                   </div>
@@ -164,22 +204,22 @@ const ProjectManagement: React.FC = () => {
                       </h3>
                     </div>
 
-                    {/* Row 1: Project Name, Shipper */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Compact 4-column grid layout */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="projectName" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Verdana, sans-serif' }}>
+                        <Label htmlFor="name" className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Verdana, sans-serif' }}>
                           Project Name *
                         </Label>
                         <Input
-                          id="projectName"
-                          placeholder="e.g., COVID_Vaccine_Trial_001"
-                          {...register('projectName', { required: 'Project name is required' })}
-                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                          id="name"
+                          placeholder="COVID_Vaccine_Trial_001"
+                          {...register('name', { required: 'Project name is required' })}
+                          className="h-9 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         />
-                        {errors.projectName && (
-                          <p className="text-sm text-red-600 flex items-center space-x-1">
+                        {errors.name && (
+                          <p className="text-xs text-red-600 flex items-center space-x-1">
                             <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.projectName.message}</span>
+                            <span>{errors.name.message}</span>
                           </p>
                         )}
                       </div>
@@ -190,76 +230,57 @@ const ProjectManagement: React.FC = () => {
                         </Label>
                         <Input
                           id="shipper"
-                          placeholder="e.g., DHL Logistics"
+                          placeholder="DHL Logistics"
                           {...register('shipper', { required: 'Shipper is required' })}
-                          className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                          className="h-9 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         />
                         {errors.shipper && (
-                          <p className="text-sm text-red-600 flex items-center space-x-1">
+                          <p className="text-xs text-red-600 flex items-center space-x-1">
                             <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                             <span>{errors.shipper.message}</span>
                           </p>
                         )}
                       </div>
-                    </div>
 
-                    {/* Row 2: Invoice Number, Compound */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="invoiceNumber" className="text-sm font-semibold text-gray-700">
-                          Invoice Number *
+                        <Label htmlFor="invoice" className="text-sm font-medium text-gray-700">
+                          Invoice Number
                         </Label>
                         <Input
-                          id="invoiceNumber"
-                          placeholder="e.g., 1234 5678 9101"
-                          {...register('invoiceNumber', { required: 'Invoice number is required' })}
-                          className="h-12"
+                          id="invoice"
+                          placeholder="1234 5678 9101"
+                          {...register('invoice')}
+                          className="h-9"
                         />
-                        {errors.invoiceNumber && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.invoiceNumber.message}</span>
-                          </p>
-                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="compound" className="text-sm font-semibold text-gray-700">
-                          Compound *
+                        <Label htmlFor="compound" className="text-sm font-medium text-gray-700">
+                          Compound
                         </Label>
                         <Input
                           id="compound"
-                          placeholder="e.g., Remdesivir_API"
-                          {...register('compound', { required: 'Compound is required' })}
-                          className="h-12"
+                          placeholder="Remdesivir_API"
+                          {...register('compound')}
+                          className="h-9"
                         />
-                        {errors.compound && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.compound.message}</span>
-                          </p>
-                        )}
                       </div>
-                    </div>
 
-                    {/* Row 3: Quantity, Expiry Date */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="quantity" className="text-sm font-semibold text-gray-700">
-                          Quantity *
+                        <Label htmlFor="quantity" className="text-sm font-medium text-gray-700">
+                          Quantity
                         </Label>
                         <Input
                           id="quantity"
                           type="number"
-                          placeholder="e.g., 5000"
+                          placeholder="5000"
                           {...register('quantity', {
-                            required: 'Quantity is required',
                             min: { value: 1, message: 'Quantity must be at least 1' }
                           })}
-                          className="h-12"
+                          className="h-9"
                         />
                         {errors.quantity && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
+                          <p className="text-xs text-red-500 flex items-center space-x-1">
                             <span className="w-1 h-1 bg-red-500 rounded-full"></span>
                             <span>{errors.quantity.message}</span>
                           </p>
@@ -267,190 +288,98 @@ const ProjectManagement: React.FC = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="expDate" className="text-sm font-semibold text-gray-700">
-                          Expiry Date *
+                        <Label htmlFor="expDate" className="text-sm font-medium text-gray-700">
+                          Expiry Date
                         </Label>
                         <Input
                           id="expDate"
                           type="date"
-                          {...register('expDate', { required: 'Expiry date is required' })}
-                          className="h-12"
+                          {...register('expDate')}
+                          className="h-9"
                         />
-                        {errors.expDate && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.expDate.message}</span>
-                          </p>
-                        )}
                       </div>
-                    </div>
 
-                    {/* Row 4: Shipment ID, Package Lot */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="shipmentId" className="text-sm font-semibold text-gray-700">
-                          Shipment ID *
+                        <Label htmlFor="shipmentId" className="text-sm font-medium text-gray-700">
+                          Shipment ID
                         </Label>
                         <Input
                           id="shipmentId"
-                          placeholder="e.g., SHIP-2025-0012"
-                          {...register('shipmentId', { required: 'Shipment ID is required' })}
-                          className="h-12"
+                          placeholder="SHIP-2025-0012"
+                          {...register('shipmentId')}
+                          className="h-9"
                         />
-                        {errors.shipmentId && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.shipmentId.message}</span>
-                          </p>
-                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="packageLot" className="text-sm font-semibold text-gray-700">
-                          Package Lot *
+                        <Label htmlFor="packageLot" className="text-sm font-medium text-gray-700">
+                          Package Lot
                         </Label>
                         <Input
                           id="packageLot"
-                          placeholder="e.g., 4521"
-                          {...register('packageLot', { required: 'Package lot is required' })}
-                          className="h-12"
+                          placeholder="4521"
+                          {...register('packageLot')}
+                          className="h-9"
                         />
-                        {errors.packageLot && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.packageLot.message}</span>
-                          </p>
-                        )}
                       </div>
-                    </div>
 
-                    {/* Row 5: Protocol, Site */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="protocol" className="text-sm font-semibold text-gray-700">
-                          Protocol *
+                        <Label htmlFor="protocol" className="text-sm font-medium text-gray-700">
+                          Protocol
                         </Label>
                         <Input
                           id="protocol"
-                          placeholder="e.g., PROT-XYZ-2025"
-                          {...register('protocol', { required: 'Protocol is required' })}
-                          className="h-12"
+                          placeholder="PROT-XYZ-2025"
+                          {...register('protocol')}
+                          className="h-9"
                         />
-                        {errors.protocol && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.protocol.message}</span>
-                          </p>
-                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="site" className="text-sm font-semibold text-gray-700">
-                          Site *
+                        <Label htmlFor="site" className="text-sm font-medium text-gray-700">
+                          Site
                         </Label>
                         <Input
                           id="site"
-                          placeholder="e.g., SG001"
-                          {...register('site', { required: 'Site is required' })}
-                          className="h-12"
+                          placeholder="SG001"
+                          {...register('site')}
+                          className="h-9"
                         />
-                        {errors.site && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.site.message}</span>
-                          </p>
-                        )}
                       </div>
-                    </div>
 
-                    {/* Row 6: Invoice Date, Creation Date */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
-                        <Label htmlFor="invoiceDate" className="text-sm font-semibold text-gray-700">
-                          Invoice Date *
+                        <Label htmlFor="invoiceDate" className="text-sm font-medium text-gray-700">
+                          Invoice Date
                         </Label>
                         <Input
                           id="invoiceDate"
                           type="date"
-                          {...register('invoiceDate', { required: 'Invoice date is required' })}
-                          className="h-12"
+                          {...register('invoiceDate')}
+                          className="h-9"
                         />
-                        {errors.invoiceDate && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.invoiceDate.message}</span>
-                          </p>
-                        )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="creationDate" className="text-sm font-semibold text-gray-700">
-                          Creation Date *
+                        <Label htmlFor="description" className="text-sm font-medium text-gray-700">
+                          Description
                         </Label>
                         <Input
-                          id="creationDate"
-                          type="date"
-                          {...register('creationDate', { required: 'Creation date is required' })}
-                          className="h-12"
+                          id="description"
+                          placeholder="Project description"
+                          {...register('description')}
+                          className="h-9"
                         />
-                        {errors.creationDate && (
-                          <p className="text-sm text-red-500 flex items-center space-x-1">
-                            <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                            <span>{errors.creationDate.message}</span>
-                          </p>
-                        )}
                       </div>
                     </div>
 
-                    {/* Status */}
+                    {/* Remarks - Full width */}
                     <div className="space-y-2">
-                      <Label htmlFor="status" className="text-sm font-semibold text-gray-700">
-                        Status *
-                      </Label>
-                      <Select onValueChange={(value) => setValue('status', value as 'Open' | 'Closed')}>
-                        <SelectTrigger className="h-12">
-                          <SelectValue placeholder="Select project status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Open">Open</SelectItem>
-                          <SelectItem value="Closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {errors.status && (
-                        <p className="text-sm text-red-500 flex items-center space-x-1">
-                          <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                          <span>{errors.status.message}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Description */}
-                    <div className="space-y-2">
-                      <Label htmlFor="description" className="text-sm font-semibold text-gray-700">
-                        Description *
-                      </Label>
-                      <Textarea
-                        id="description"
-                        placeholder="e.g., Phase 3 clinical trial shipment for Changi Plant."
-                        {...register('description', { required: 'Description is required' })}
-                        className="min-h-[100px]"
-                      />
-                      {errors.description && (
-                        <p className="text-sm text-red-500 flex items-center space-x-1">
-                          <span className="w-1 h-1 bg-red-500 rounded-full"></span>
-                          <span>{errors.description.message}</span>
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Remarks */}
-                    <div className="space-y-2">
-                      <Label htmlFor="remarks" className="text-sm font-semibold text-gray-700">
+                      <Label htmlFor="remarks" className="text-sm font-medium text-gray-700">
                         Remarks
                       </Label>
                       <Textarea
                         id="remarks"
-                        placeholder="e.g., Handle with cold storage (2-8°C)"
+                        placeholder="Additional notes or remarks about the project..."
                         {...register('remarks')}
                         className="min-h-[100px]"
                       />
@@ -492,9 +421,7 @@ const ProjectManagement: React.FC = () => {
                             />
 
                             <div className="flex flex-col items-center space-y-4">
-                              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{
-                                background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-                              }}>
+                              <div className="w-16 h-16 rounded-full flex items-center justify-center bg-white/80">
                                 <Upload className="w-8 h-8 text-gray-700" />
                               </div>
 
@@ -555,11 +482,7 @@ const ProjectManagement: React.FC = () => {
                       <Button
                         type="submit"
                         disabled={isLoading}
-                        className="px-8 py-3 font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-gray-700 hover:text-gray-800"
-                        style={{
-                          background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 50%, #E4F2E7 100%)',
-                          border: '1px solid #D9ECD2'
-                        }}
+                        className="px-8 py-3 font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 text-gray-700 hover:text-gray-800 bg-z-light-green border border-z-pale-green"
                       >
                         {isLoading ? (
                           <div className="flex items-center space-x-2">
@@ -584,14 +507,10 @@ const ProjectManagement: React.FC = () => {
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-6">
               {/* Project Guidelines Card */}
-              <Card className="bg-white shadow-lg border border-gray-200 rounded-xl">
-                <CardHeader className="border-b border-gray-200 p-4" style={{
-                  background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)'
-                }}>
+              <Card className="bg-z-light-green shadow-lg border border-gray-200 rounded-xl">
+                <CardHeader className="border-b border-gray-200 p-4 bg-z-pale-green">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center space-x-2" style={{ fontFamily: 'Georgia, serif' }}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
-                      background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-                    }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/80">
                       <FileText className="w-4 h-4 text-gray-700" />
                     </div>
                     <span>Project Guidelines</span>
@@ -625,14 +544,10 @@ const ProjectManagement: React.FC = () => {
               </Card>
 
               {/* Quick Stats Card */}
-              <Card className="bg-white shadow-lg border border-gray-200 rounded-xl">
-                <CardHeader className="border-b border-gray-200 p-4" style={{
-                  background: 'linear-gradient(135deg, #F5FAF2 0%, #E4F2E7 100%)'
-                }}>
+              <Card className="bg-z-light-green shadow-lg border border-gray-200 rounded-xl">
+                <CardHeader className="border-b border-gray-200 p-4 bg-z-pale-green">
                   <CardTitle className="text-lg font-semibold text-gray-900 flex items-center space-x-2" style={{ fontFamily: 'Georgia, serif' }}>
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
-                      background: 'linear-gradient(135deg, #AEE0E8 0%, #D9ECD2 100%)'
-                    }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/80">
                       <Calendar className="w-4 h-4 text-gray-700" />
                     </div>
                     <span>Quick Stats</span>
