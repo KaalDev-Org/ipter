@@ -23,7 +23,11 @@ public interface ExtractedDataRepository extends JpaRepository<ExtractedData, UU
      * Find extracted data by image
      */
     List<ExtractedData> findByImage(Image image);
-    
+
+    /**
+     * Find extracted data by imageId
+     */
+    List<ExtractedData>findByImageId(UUID imageId);
     /**
      * Find extracted data by container number
      */

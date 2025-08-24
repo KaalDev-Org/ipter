@@ -289,6 +289,15 @@ public class UserManagementService {
     }
 
     /**
+     * Find user by username (for internal use)
+     */
+    @Transactional(readOnly = true)
+    public User findByUsername(String username) throws Exception {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new Exception("User not found with username: " + username));
+    }
+
+    /**
      * Check if user can create projects
      */
     public boolean canCreateProjects(String username) {

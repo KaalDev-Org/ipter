@@ -2,8 +2,10 @@ package com.ipter.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import com.ipter.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +13,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ipter.dto.AuditLogReviewRequest;
+import com.ipter.dto.AuditLogReviewResponse;
 import com.ipter.model.AuditLog;
 import com.ipter.model.Project;
 import com.ipter.model.ProjectStatus;
@@ -131,7 +135,11 @@ public class AuditService {
                 "Failed login attempt for username '" + username + "'", 
                 null, ipAddress, userAgent);
     }
-    
+    public void logImageUpload(User user, Project project, Image image) {
+        logEvent("IMAGE_UPLOADED", "Image", image.getId(),"Image '" + image.getOriginalFilename() + "' uploaded for project '" + project.getName()+"'",
+                user);
+    }
+
     /**
      * Get all audit logs with pagination (Admin only)
      */
@@ -265,5 +273,149 @@ public class AuditService {
         public long getUserUpdates() { return userUpdates; }
         public long getLoginAttempts() { return loginAttempts; }
         public long getFailedLogins() { return failedLogins; }
+    }
+
+    // ===== AUDIT LOG REVIEW METHODS =====
+
+    /**
+     * Review an audit log (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional
+    public AuditLogReviewResponse reviewAuditLog(AuditLogReviewRequest request, User reviewer) {
+        Optional<AuditLog> auditLogOpt = auditLogRepository.findById(request.getAuditLogId());
+        if (auditLogOpt.isEmpty()) {
+            throw new RuntimeException("Audit log not found with ID: " + request.getAuditLogId());
+        }
+
+        AuditLog auditLog = auditLogOpt.get();
+        auditLog.setReviewStatus(request.getReviewStatus());
+        auditLog.setReviewedBy(reviewer);
+        auditLog.setReviewedAt(LocalDateTime.now());
+        auditLog.setReviewComments(request.getReviewComments());
+
+        auditLogRepository.save(auditLog);
+
+        // Log the review action itself
+        logEvent("AUDIT_LOG_REVIEWED", "AuditLog", auditLog.getId(),
+                "Audit log reviewed with status: " + request.getReviewStatus(), reviewer);
+
+        return new AuditLogReviewResponse(auditLog);
+    }
+
+    /**
+     * Get audit logs by review status (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<AuditLogReviewResponse> getAuditLogsByReviewStatus(ReviewStatus reviewStatus) {
+        List<AuditLog> auditLogs = auditLogRepository.findByReviewStatus(reviewStatus);
+        return auditLogs.stream()
+                .map(AuditLogReviewResponse::new)
+                .toList();
+    }
+
+    /**
+     * Get audit logs by review status with pagination (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public Page<AuditLogReviewResponse> getAuditLogsByReviewStatus(ReviewStatus reviewStatus, Pageable pageable) {
+        Page<AuditLog> auditLogs = auditLogRepository.findByReviewStatus(reviewStatus, pageable);
+        return auditLogs.map(AuditLogReviewResponse::new);
+    }
+
+    /**
+     * Get pending review logs (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<AuditLogReviewResponse> getPendingReviewLogs() {
+        List<AuditLog> auditLogs = auditLogRepository.findPendingReviewLogs();
+        return auditLogs.stream()
+                .map(AuditLogReviewResponse::new)
+                .toList();
+    }
+
+    /**
+     * Get flagged audit logs (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<AuditLogReviewResponse> getFlaggedLogs() {
+        List<AuditLog> auditLogs = auditLogRepository.findFlaggedLogs();
+        return auditLogs.stream()
+                .map(AuditLogReviewResponse::new)
+                .toList();
+    }
+
+    /**
+     * Get reviewed logs by date range (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<AuditLogReviewResponse> getReviewedLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        List<AuditLog> auditLogs = auditLogRepository.findReviewedLogsByDateRange(startDate, endDate);
+        return auditLogs.stream()
+                .map(AuditLogReviewResponse::new)
+                .toList();
+    }
+
+    /**
+     * Get audit logs reviewed by specific user (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<AuditLogReviewResponse> getAuditLogsReviewedBy(User reviewer) {
+        List<AuditLog> auditLogs = auditLogRepository.findByReviewedBy(reviewer);
+        return auditLogs.stream()
+                .map(AuditLogReviewResponse::new)
+                .toList();
+    }
+
+    /**
+     * Get review statistics (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public ReviewStatistics getReviewStatistics() {
+        long totalLogs = auditLogRepository.count();
+        long pendingReviews = auditLogRepository.countByReviewStatus(ReviewStatus.PENDING);
+        long reviewedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.REVIEWED);
+        long flaggedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.FLAGGED);
+        long approvedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.APPROVED);
+        long rejectedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.REJECTED);
+
+        return new ReviewStatistics(totalLogs, pendingReviews, reviewedLogs, flaggedLogs, approvedLogs, rejectedLogs);
+    }
+
+    /**
+     * Inner class for review statistics
+     */
+    public static class ReviewStatistics {
+        private final long totalLogs;
+        private final long pendingReviews;
+        private final long reviewedLogs;
+        private final long flaggedLogs;
+        private final long approvedLogs;
+        private final long rejectedLogs;
+
+        public ReviewStatistics(long totalLogs, long pendingReviews, long reviewedLogs,
+                               long flaggedLogs, long approvedLogs, long rejectedLogs) {
+            this.totalLogs = totalLogs;
+            this.pendingReviews = pendingReviews;
+            this.reviewedLogs = reviewedLogs;
+            this.flaggedLogs = flaggedLogs;
+            this.approvedLogs = approvedLogs;
+            this.rejectedLogs = rejectedLogs;
+        }
+
+        // Getters
+        public long getTotalLogs() { return totalLogs; }
+        public long getPendingReviews() { return pendingReviews; }
+        public long getReviewedLogs() { return reviewedLogs; }
+        public long getFlaggedLogs() { return flaggedLogs; }
+        public long getApprovedLogs() { return approvedLogs; }
+        public long getRejectedLogs() { return rejectedLogs; }
     }
 }
