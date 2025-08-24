@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ipter.model.AuditLog;
+import com.ipter.model.Project;
+import com.ipter.model.ProjectStatus;
 import com.ipter.model.User;
 import com.ipter.repository.AuditLogRepository;
 
@@ -199,7 +201,45 @@ public class AuditService {
         
         return new AuditStatistics(totalLogs, userCreations, userUpdates, loginAttempts, failedLogins);
     }
-    
+
+    // Project-related audit methods
+
+    /**
+     * Log project creation
+     */
+    public void logProjectCreation(Project project, User performedBy) {
+        logEvent("PROJECT_CREATED", "Project", project.getId(),
+                "Project '" + project.getName() + "' created",
+                performedBy);
+    }
+
+    /**
+     * Log project status change
+     */
+    public void logProjectStatusChange(Project project, ProjectStatus oldStatus, ProjectStatus newStatus, User performedBy) {
+        logEvent("PROJECT_STATUS_CHANGED", "Project", project.getId(),
+                "Project '" + project.getName() + "' status changed from " + oldStatus + " to " + newStatus,
+                performedBy);
+    }
+
+    /**
+     * Log PDF upload
+     */
+    public void logPdfUpload(Project project, String fileName, User performedBy) {
+        logEvent("PDF_UPLOADED", "Project", project.getId(),
+                "PDF file '" + fileName + "' uploaded for project '" + project.getName() + "'",
+                performedBy);
+    }
+
+    /**
+     * Log master data processing
+     */
+    public void logMasterDataProcessing(Project project, int extractedCount, User performedBy) {
+        logEvent("MASTER_DATA_PROCESSED", "Project", project.getId(),
+                "Master data processed for project '" + project.getName() + "' - extracted " + extractedCount + " container numbers",
+                performedBy);
+    }
+
     /**
      * Inner class for audit statistics
      */

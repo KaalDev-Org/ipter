@@ -113,26 +113,26 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-z-ivory to-z-light-green">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className="min-h-screen bg-z-light-green">
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-header font-bold text-slate-900 mb-2">
+        <div className="mb-6">
+          <h1 className="text-3xl font-header font-bold text-slate-900 mb-2">
             My Profile
           </h1>
-          <p className="text-lg text-gray-600">
+          <p className="text-base text-gray-600">
             Manage your account information and settings
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Profile Card */}
-          <Card className="lg:col-span-2 bg-white/95 backdrop-blur-sm shadow-xl border-0">
-            <CardHeader className="bg-gradient-to-r from-z-pale-green to-z-light-green">
+          <Card className="lg:col-span-2 bg-z-light-green backdrop-blur-sm shadow-xl border-0">
+            <CardHeader className="bg-z-pale-green">
               <div className="flex items-center space-x-6">
                 <Avatar className="h-20 w-20 ring-4 ring-white shadow-lg">
                   <AvatarImage src="" alt={userProfile?.username} />
-                  <AvatarFallback className="bg-gradient-to-br from-z-sky to-z-pale-green text-slate-900 text-2xl font-bold">
+                  <AvatarFallback className="bg-white/90 text-slate-900 text-2xl font-bold">
                     {getInitials(userProfile?.username)}
                   </AvatarFallback>
                 </Avatar>
@@ -168,64 +168,51 @@ const Profile: React.FC = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-8 space-y-8">
+            <CardContent className="p-6 space-y-6">
               {/* Basic Information */}
               <div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-4 flex items-center">
-                  <User className="w-5 h-5 mr-2 text-slate-600" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center">
+                  <User className="w-4 h-4 mr-2 text-slate-600" />
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-gray-500">Username</p>
-                    <p className="text-lg text-slate-900">{userProfile?.username}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-gray-500">Email Address</p>
-                    <p className="text-lg text-slate-900 flex items-center">
-                      <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                      {userProfile?.email}
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-gray-500">User ID</p>
-                    <p className="text-sm text-gray-600 font-mono">{userProfile?.id}</p>
+                    <p className="text-base text-slate-900">{userProfile?.username}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-gray-500">Account Status</p>
-                    <p className={`text-lg font-medium ${userProfile?.isActive ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-base font-medium ${userProfile?.isActive ? 'text-green-600' : 'text-red-600'}`}>
                       {userProfile?.isActive ? 'Active' : 'Inactive'}
                     </p>
                   </div>
                 </div>
               </div>
 
-              <Separator />
-
               {/* Organization Information */}
               {(userProfile?.organization || userProfile?.designation || userProfile?.address) && (
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900 mb-4 flex items-center">
-                    <Building className="w-5 h-5 mr-2 text-slate-600" />
+                  <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center">
+                    <Building className="w-4 h-4 mr-2 text-slate-600" />
                     Organization Details
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {userProfile?.organization && (
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-500">Organization</p>
-                        <p className="text-lg text-slate-900">{userProfile.organization}</p>
+                        <p className="text-base text-slate-900">{userProfile.organization}</p>
                       </div>
                     )}
                     {userProfile?.designation && (
                       <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-500">Designation</p>
-                        <p className="text-lg text-slate-900">{userProfile.designation}</p>
+                        <p className="text-base text-slate-900">{userProfile.designation}</p>
                       </div>
                     )}
                     {userProfile?.address && (
-                      <div className="space-y-1 md:col-span-2">
+                      <div className="space-y-1">
                         <p className="text-sm font-medium text-gray-500">Address</p>
-                        <p className="text-lg text-slate-900 flex items-start">
+                        <p className="text-base text-slate-900 flex items-start">
                           <MapPin className="w-4 h-4 mr-2 text-gray-400 mt-1" />
                           {userProfile.address}
                         </p>
@@ -235,43 +222,41 @@ const Profile: React.FC = () => {
                 </div>
               )}
 
-              <Separator />
-
               {/* Permissions */}
               <div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-4 flex items-center">
-                  <Settings className="w-5 h-5 mr-2 text-slate-600" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center">
+                  <Settings className="w-4 h-4 mr-2 text-slate-600" />
                   Permissions & Access
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className={`p-4 rounded-lg border-2 ${userProfile?.canViewAuditTrail ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
-                    <div className="flex items-center space-x-3">
-                      <Eye className={`w-5 h-5 ${userProfile?.canViewAuditTrail ? 'text-green-600' : 'text-gray-400'}`} />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canViewAuditTrail ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex items-center space-x-2">
+                      <Eye className={`w-4 h-4 ${userProfile?.canViewAuditTrail ? 'text-green-600' : 'text-gray-400'}`} />
                       <div>
-                        <p className="font-medium text-slate-900">Audit Trail</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-medium text-slate-900 text-sm">Audit Trail</p>
+                        <p className="text-xs text-gray-600">
                           {userProfile?.canViewAuditTrail ? 'Enabled' : 'Disabled'}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className={`p-4 rounded-lg border-2 ${userProfile?.canCreateProjects ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
-                    <div className="flex items-center space-x-3">
-                      <FolderOpen className={`w-5 h-5 ${userProfile?.canCreateProjects ? 'text-green-600' : 'text-gray-400'}`} />
+                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canCreateProjects ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex items-center space-x-2">
+                      <FolderOpen className={`w-4 h-4 ${userProfile?.canCreateProjects ? 'text-green-600' : 'text-gray-400'}`} />
                       <div>
-                        <p className="font-medium text-slate-900">Create Projects</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-medium text-slate-900 text-sm">Create Projects</p>
+                        <p className="text-xs text-gray-600">
                           {userProfile?.canCreateProjects ? 'Enabled' : 'Disabled'}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className={`p-4 rounded-lg border-2 ${userProfile?.canViewReports ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
-                    <div className="flex items-center space-x-3">
-                      <FileText className={`w-5 h-5 ${userProfile?.canViewReports ? 'text-green-600' : 'text-gray-400'}`} />
+                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canViewReports ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                    <div className="flex items-center space-x-2">
+                      <FileText className={`w-4 h-4 ${userProfile?.canViewReports ? 'text-green-600' : 'text-gray-400'}`} />
                       <div>
-                        <p className="font-medium text-slate-900">View Reports</p>
-                        <p className="text-sm text-gray-600">
+                        <p className="font-medium text-slate-900 text-sm">View Reports</p>
+                        <p className="text-xs text-gray-600">
                           {userProfile?.canViewReports ? 'Enabled' : 'Disabled'}
                         </p>
                       </div>
@@ -280,25 +265,23 @@ const Profile: React.FC = () => {
                 </div>
               </div>
 
-              <Separator />
-
               {/* Account Activity */}
               <div>
-                <h3 className="text-xl font-semibold text-slate-900 mb-4 flex items-center">
-                  <Activity className="w-5 h-5 mr-2 text-slate-600" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center">
+                  <Activity className="w-4 h-4 mr-2 text-slate-600" />
                   Account Activity
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-gray-500">Last Login</p>
-                    <p className="text-lg text-slate-900 flex items-center">
+                    <p className="text-base text-slate-900 flex items-center">
                       <Clock className="w-4 h-4 mr-2 text-gray-400" />
                       {userProfile?.lastLogin ? formatDate(userProfile.lastLogin) : 'Never'}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-gray-500">Account Created</p>
-                    <p className="text-lg text-slate-900 flex items-center">
+                    <p className="text-base text-slate-900 flex items-center">
                       <Calendar className="w-4 h-4 mr-2 text-gray-400" />
                       {userProfile?.createdAt ? formatDate(userProfile.createdAt) : 'Unknown'}
                     </p>
@@ -311,8 +294,8 @@ const Profile: React.FC = () => {
           {/* Quick Actions Sidebar */}
           <div className="space-y-6">
             {/* Actions Card */}
-            <Card className="bg-white/95 backdrop-blur-sm shadow-xl border-0">
-              <CardHeader className="bg-gradient-to-r from-z-sky to-z-pale-green">
+            <Card className="bg-z-light-green backdrop-blur-sm shadow-xl border-0">
+              <CardHeader className="bg-z-pale-green">
                 <CardTitle className="text-xl font-header text-slate-900">Quick Actions</CardTitle>
                 <CardDescription className="text-slate-700">
                   Manage your account settings
@@ -321,7 +304,7 @@ const Profile: React.FC = () => {
               <CardContent className="p-6 space-y-4">
                 <Button
                   onClick={() => setShowChangePasswordModal(true)}
-                  className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white"
+                  className="w-full bg-slate-600 hover:bg-slate-700 text-white"
                 >
                   <Key className="mr-2 h-4 w-4" />
                   Change Password

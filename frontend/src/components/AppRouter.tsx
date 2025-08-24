@@ -8,6 +8,9 @@ import Dashboard from '../pages/Dashboard';
 import Profile from '../pages/Profile';
 import UserManagement from '../pages/UserManagement';
 import ProjectManagement from '../pages/ProjectManagement';
+import ProjectData from '../pages/ProjectData';
+import UploadImage from '../pages/UploadImage';
+import ViewAuditTrail from '../pages/ViewAuditTrail';
 import ChangePasswordModal from './ChangePasswordModal';
 
 // Layout component for authenticated pages (with navbar)
@@ -44,7 +47,14 @@ const PublicLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 };
 
 const AppRouter: React.FC = () => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
+
+  const getDefaultRoute = () => {
+    const userRole = user?.roles?.[0];
+    if (userRole === 'USER') return '/upload-image';
+    if (userRole === 'REVIEWER') return '/project-data';
+    return '/user-management'; // ADMINISTRATOR
+  };
 
   if (loading) {
     return (
@@ -104,6 +114,39 @@ const AppRouter: React.FC = () => {
       />
 
       <Route
+        path="/project-data"
+        element={
+          <AuthenticatedLayout>
+            <ProtectedRoute>
+              <ProjectData />
+            </ProtectedRoute>
+          </AuthenticatedLayout>
+        }
+      />
+
+      <Route
+        path="/upload-image"
+        element={
+          <AuthenticatedLayout>
+            <ProtectedRoute>
+              <UploadImage />
+            </ProtectedRoute>
+          </AuthenticatedLayout>
+        }
+      />
+
+      <Route
+        path="/view-audit-trail"
+        element={
+          <AuthenticatedLayout>
+            <ProtectedRoute>
+              <ViewAuditTrail />
+            </ProtectedRoute>
+          </AuthenticatedLayout>
+        }
+      />
+
+      <Route
         path="/profile"
         element={
           <AuthenticatedLayout>
@@ -119,7 +162,7 @@ const AppRouter: React.FC = () => {
         path="/"
         element={
           isAuthenticated ?
-            <Navigate to="/user-management" replace /> :
+            <Navigate to={getDefaultRoute()} replace /> :
             <Navigate to="/login" replace />
         }
       />
@@ -129,7 +172,7 @@ const AppRouter: React.FC = () => {
         path="*"
         element={
           isAuthenticated ?
-            <Navigate to="/user-management" replace /> :
+            <Navigate to={getDefaultRoute()} replace /> :
             <Navigate to="/login" replace />
         }
       />
