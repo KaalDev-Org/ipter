@@ -296,4 +296,17 @@ public class UserManagementService {
         return userRepository.findByUsername(username)
                 .orElseThrow(() -> new Exception("User not found with username: " + username));
     }
+
+    /**
+     * Check if user can create projects
+     */
+    public boolean canCreateProjects(String username) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return false;
+        }
+
+        User user = userOpt.get();
+        return user.isActive() && user.isCanCreateProjects();
+    }
 }

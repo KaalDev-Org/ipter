@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { User, LogOut, Users, FolderOpen, Database, FileSearch, Key } from 'lucide-react';
+import { User, LogOut, Users, FolderOpen, Database, FileSearch, Key, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import {
@@ -18,7 +18,12 @@ import ChangePasswordModal from './ChangePasswordModal';
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [activeNav, setActiveNav] = useState('user-management');
+  const [activeNav, setActiveNav] = useState(() => {
+    const userRole = user?.roles?.[0];
+    if (userRole === 'USER') return 'upload-image';
+    if (userRole === 'REVIEWER') return 'project-data';
+    return 'user-management'; // ADMINISTRATOR
+  });
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
   const handleLogout = async () => {
@@ -40,15 +45,71 @@ const Navbar: React.FC = () => {
     return 'U';
   };
 
+  // Get navigation items based on user role and permissions
+  const getNavigationItems = () => {
+    const userRole = user?.roles?.[0] || user?.role;
+    const navigationItems = [];
+
+    // Admin gets user management first
+    if (userRole === 'ADMINISTRATOR') {
+      navigationItems.push({
+        id: 'user-management',
+        label: 'User Management',
+        icon: Users,
+        path: '/user-management'
+      });
+    }
+
+    // Non-admin users get upload image FIRST (primary functionality)
+    if (userRole !== 'ADMINISTRATOR') {
+      navigationItems.push({
+        id: 'upload-image',
+        label: 'Upload Image',
+        icon: Upload,
+        path: '/upload-image'
+      });
+    }
+
+    // Users with canCreateProjects permission get project management
+    if (user?.canCreateProjects) {
+      navigationItems.push({
+        id: 'project-management',
+        label: 'Project Management',
+        icon: FolderOpen,
+        path: '/project-management'
+      });
+    }
+
+    // All authenticated users get project data (for viewing projects)
+    navigationItems.push({
+      id: 'project-data',
+      label: 'Project Data',
+      icon: Database,
+      path: '/project-data'
+    });
+
+    // Users with canViewAuditTrail permission get audit trail
+    if (user?.canViewAuditTrail) {
+      navigationItems.push({
+        id: 'view-audit-trail',
+        label: 'View Audit Trail',
+        icon: FileSearch,
+        path: '/view-audit-trail'
+      });
+    }
+
+    return navigationItems;
+  };
+
   return (
     <>
-    <nav className="bg-gradient-to-r from-z-ivory via-white to-z-light-green border-b border-z-pale-green/20 shadow-lg backdrop-blur-sm">
+    <nav className="bg-z-pale-green border-b border-z-pale-green/20 shadow-lg backdrop-blur-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-16">
           {/* Logo and Brand - Far Left */}
           <div className="flex items-center">
-            <Link to="/user-management" className="flex items-center space-x-3 group">
-              <div className="w-12 h-12 bg-gradient-to-br from-z-sky to-z-pale-green rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+            <Link to={getNavigationItems()[0]?.path || '/user-management'} className="flex items-center space-x-3 group">
+              <div className="w-12 h-12 bg-white/90 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
                 <ZuelligIcon className="text-slate-900" width={28} height={28} />
               </div>
               <div className="flex flex-col">
@@ -65,78 +126,30 @@ const Navbar: React.FC = () => {
           {/* Navigation Links - Center */}
           <div className="flex-1 flex justify-center">
             <div className="flex items-center space-x-2">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setActiveNav('user-management');
-                  navigate('/user-management');
-                }}
-                className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  activeNav === 'user-management'
-                    ? 'bg-gradient-to-r from-z-sky/20 to-z-pale-green/20 text-slate-900 shadow-md border border-z-sky/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-gradient-to-r hover:from-z-sky/10 hover:to-z-pale-green/10 hover:shadow-sm'
-                }`}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                User Management
-                {activeNav === 'user-management' && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-z-sky to-z-pale-green rounded-full"></div>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setActiveNav('project-management');
-                  navigate('/project-management');
-                }}
-                className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  activeNav === 'project-management'
-                    ? 'bg-gradient-to-r from-z-sky/20 to-z-pale-green/20 text-slate-900 shadow-md border border-z-sky/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-gradient-to-r hover:from-z-sky/10 hover:to-z-pale-green/10 hover:shadow-sm'
-                }`}
-              >
-                <FolderOpen className="w-4 h-4 mr-2" />
-                Project Management
-                {activeNav === 'project-management' && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-z-sky to-z-pale-green rounded-full"></div>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setActiveNav('view-project-data');
-                  navigate('/view-project-data');
-                }}
-                className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  activeNav === 'view-project-data'
-                    ? 'bg-gradient-to-r from-z-sky/20 to-z-pale-green/20 text-slate-900 shadow-md border border-z-sky/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-gradient-to-r hover:from-z-sky/10 hover:to-z-pale-green/10 hover:shadow-sm'
-                }`}
-              >
-                <Database className="w-4 h-4 mr-2" />
-                View Project Data
-                {activeNav === 'view-project-data' && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-z-sky to-z-pale-green rounded-full"></div>
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setActiveNav('view-audit-trail');
-                  navigate('/view-audit-trail');
-                }}
-                className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                  activeNav === 'view-audit-trail'
-                    ? 'bg-gradient-to-r from-z-sky/20 to-z-pale-green/20 text-slate-900 shadow-md border border-z-sky/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-gradient-to-r hover:from-z-sky/10 hover:to-z-pale-green/10 hover:shadow-sm'
-                }`}
-              >
-                <FileSearch className="w-4 h-4 mr-2" />
-                View Audit Trail
-                {activeNav === 'view-audit-trail' && (
-                  <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-gradient-to-r from-z-sky to-z-pale-green rounded-full"></div>
-                )}
-              </Button>
+              {getNavigationItems().map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <Button
+                    key={item.id}
+                    variant="ghost"
+                    onClick={() => {
+                      setActiveNav(item.id);
+                      navigate(item.path);
+                    }}
+                    className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                      activeNav === item.id
+                        ? 'bg-z-sky/20 text-slate-900 shadow-md border border-z-sky/30'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-z-sky/10 hover:shadow-sm'
+                    }`}
+                  >
+                    <IconComponent className="w-4 h-4 mr-2" />
+                    {item.label}
+                    {activeNav === item.id && (
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-z-sky rounded-full"></div>
+                    )}
+                  </Button>
+                );
+              })}
             </div>
           </div>
 
@@ -148,7 +161,7 @@ const Navbar: React.FC = () => {
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-z-sky/20 transition-all duration-200">
                     <Avatar className="h-10 w-10 ring-2 ring-white shadow-lg">
                       <AvatarImage src="" alt={user?.username} />
-                      <AvatarFallback className="bg-gradient-to-br from-z-sky to-z-pale-green text-slate-900 font-semibold text-sm">
+                      <AvatarFallback className="bg-z-sky text-slate-900 font-semibold text-sm">
                         {getInitials(user?.firstName, user?.lastName, user?.username)}
                       </AvatarFallback>
                     </Avatar>
@@ -160,7 +173,7 @@ const Navbar: React.FC = () => {
                       <div className="flex items-center space-x-3">
                         <Avatar className="h-12 w-12">
                           <AvatarImage src="" alt={user?.username} />
-                          <AvatarFallback className="bg-gradient-to-br from-z-sky to-z-pale-green text-slate-900 font-semibold">
+                          <AvatarFallback className="bg-z-sky text-slate-900 font-semibold">
                             {getInitials(user?.firstName, user?.lastName, user?.username)}
                           </AvatarFallback>
                         </Avatar>
@@ -171,11 +184,8 @@ const Navbar: React.FC = () => {
                               : user?.username
                             }
                           </p>
-                          <p className="text-xs leading-none text-gray-600 mt-1">
-                            {user?.email}
-                          </p>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-z-light-green text-slate-700 mt-1">
-                            {user?.roles?.[0] || 'User'}
+                            {user?.role || 'User'}
                           </span>
                         </div>
                       </div>
@@ -209,7 +219,7 @@ const Navbar: React.FC = () => {
             ) : (
               <div className="flex items-center space-x-3">
                 <Link to="/login">
-                  <Button className="bg-gradient-to-r from-z-sky to-z-pale-green hover:from-z-sky/90 hover:to-z-pale-green/90 text-slate-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+                  <Button className="bg-z-sky hover:bg-z-sky/90 text-slate-900 font-semibold shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105">
                     Sign In
                   </Button>
                 </Link>
