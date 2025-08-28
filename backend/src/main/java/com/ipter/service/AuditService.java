@@ -15,11 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.ipter.dto.AuditLogReviewRequest;
 import com.ipter.dto.AuditLogReviewResponse;
+import com.ipter.dto.ReviewSessionResponse;
 import com.ipter.model.AuditLog;
 import com.ipter.model.Project;
 import com.ipter.model.ProjectStatus;
 import com.ipter.model.User;
 import com.ipter.repository.AuditLogRepository;
+import com.ipter.repository.ReviewSessionRepository;
+import com.ipter.dto.BulkAuditLogReviewRequest;
+import com.ipter.dto.BulkReviewResponse;
 
 /**
  * Service for audit trail management
@@ -30,6 +34,9 @@ public class AuditService {
     
     @Autowired
     private AuditLogRepository auditLogRepository;
+
+    @Autowired
+    private ReviewSessionRepository reviewSessionRepository;
     
     /**
      * Log an audit event
@@ -368,6 +375,86 @@ public class AuditService {
     @Transactional(readOnly = true)
     public List<AuditLogReviewResponse> getAuditLogsReviewedBy(User reviewer) {
         List<AuditLog> auditLogs = auditLogRepository.findByReviewedBy(reviewer);
+        return auditLogs.stream()
+                .map(AuditLogReviewResponse::new)
+                .toList();
+    }
+
+    /**
+     * Bulk review all pending audit logs (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional
+    public BulkReviewResponse bulkReviewPendingLogs(BulkAuditLogReviewRequest request, User reviewer) {
+        // Get all pending review logs
+        List<AuditLog> pendingLogs = auditLogRepository.findPendingReviewLogs();
+
+        if (pendingLogs.isEmpty()) {
+            throw new RuntimeException("No pending audit logs found for review");
+        }
+
+        // Create a review session
+        ReviewSession reviewSession = new ReviewSession(reviewer, request.getReviewComments(), pendingLogs.size());
+        reviewSession = reviewSessionRepository.save(reviewSession);
+
+        // Update all pending logs
+        LocalDateTime reviewTime = LocalDateTime.now();
+        for (AuditLog auditLog : pendingLogs) {
+            auditLog.setReviewStatus(request.getReviewStatus());
+            auditLog.setReviewedBy(reviewer);
+            auditLog.setReviewedAt(reviewTime);
+            auditLog.setReviewComments(request.getReviewComments());
+            auditLog.setReviewSession(reviewSession);
+        }
+
+        // Update the details of the last reviewed log to include the bulk review action
+        if (!pendingLogs.isEmpty()) {
+            AuditLog lastLog = pendingLogs.get(pendingLogs.size() - 1);
+            String bulkReviewInfo = "\n[" + reviewTime + "]\n" +
+                                   reviewer.getUsername() + " performed BULK_AUDIT_REVIEW on AuditLog\n" +
+                                   "Bulk reviewed " + pendingLogs.size() + " audit logs with status: " + request.getReviewStatus();
+
+            // Append to existing details or create new details
+            String currentDetails = lastLog.getDetails();
+            if (currentDetails != null && !currentDetails.trim().isEmpty()) {
+                lastLog.setDetails(currentDetails + bulkReviewInfo);
+            } else {
+                lastLog.setDetails(bulkReviewInfo.trim());
+            }
+        }
+
+        // Save all updated logs
+        auditLogRepository.saveAll(pendingLogs);
+
+        // Don't create a separate log entry for the bulk review action to avoid infinite pending logs
+
+        return new BulkReviewResponse(reviewSession.getId(), pendingLogs.size(), reviewTime);
+    }
+
+    /**
+     * Get all review sessions (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<ReviewSessionResponse> getAllReviewSessions() {
+        List<ReviewSession> sessions = reviewSessionRepository.findAllOrderByReviewedAtDesc();
+        return sessions.stream()
+                .map(ReviewSessionResponse::new)
+                .toList();
+    }
+
+    /**
+     * Get audit logs by review session (Admin only)
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @Transactional(readOnly = true)
+    public List<AuditLogReviewResponse> getAuditLogsByReviewSession(UUID reviewSessionId) {
+        Optional<ReviewSession> reviewSessionOpt = reviewSessionRepository.findById(reviewSessionId);
+        if (reviewSessionOpt.isEmpty()) {
+            throw new RuntimeException("Review session not found with ID: " + reviewSessionId);
+        }
+
+        List<AuditLog> auditLogs = auditLogRepository.findByReviewSessionOrderByTimestampDesc(reviewSessionOpt.get());
         return auditLogs.stream()
                 .map(AuditLogReviewResponse::new)
                 .toList();

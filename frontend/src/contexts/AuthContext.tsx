@@ -35,13 +35,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
+      const rawToken = localStorage.getItem('token');
+      // Handle the case where token is the string "null" instead of actual null
+      const token = rawToken && rawToken !== 'null' && rawToken !== 'undefined' ? rawToken : null;
+
       if (token) {
         try {
           const userData = await authAPI.getCurrentUser();
-          setUser(userData);
-        } catch (error) {
+          // Ensure roles array is set properly for navbar compatibility
+          const user: User = {
+            ...userData,
+            roles: userData.role ? [userData.role] : []
+          };
+          setUser(user);
+        } catch (error: any) {
           console.error('Failed to get current user:', error);
+          console.error('AuthContext: getCurrentUser failed with status:', error.response?.status, error.response?.data);
+          console.trace('AuthContext: Token removal stack trace');
+
+          // Only remove token if it's actually invalid (401/403), not for network errors
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            console.warn('AuthContext: Removing token due to authentication failure');
+            localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
+          } else {
+            console.warn('AuthContext: Keeping token despite getCurrentUser failure (network/server error)');
+          }
+        }
+      } else {
+        // Clean up invalid tokens
+        if (rawToken === 'null' || rawToken === 'undefined') {
+          console.warn('Found invalid token in localStorage, cleaning up:', rawToken);
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
         }
@@ -58,15 +82,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authAPI.login(data);
       console.log('Login response:', response);
 
-      localStorage.setItem('token', response.token);
+      // Ensure we don't store null/undefined as strings
+      if (response.token && response.token !== 'null' && response.token !== 'undefined') {
+        localStorage.setItem('token', response.token);
+      } else {
+        throw new Error('Invalid token received from server');
+      }
 
       // Handle refreshToken if provided
-      if (response.refreshToken) {
+      if (response.refreshToken && response.refreshToken !== 'null' && response.refreshToken !== 'undefined') {
         localStorage.setItem('refreshToken', response.refreshToken);
       }
 
       // Create user object from response
-      const user: User = response.user || {
+      const user: User = response.user ? {
+        ...response.user,
+        roles: response.user.role ? [response.user.role] : []
+      } : {
         id: response.userId || '',
         username: response.username || '',
         email: response.email || '',
