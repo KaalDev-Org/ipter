@@ -1,12 +1,10 @@
 package com.ipter.controller;
 
-import com.ipter.dto.CreateProjectRequest;
-import com.ipter.dto.ProcessPdfRequest;
-import com.ipter.dto.ProcessPdfResponse;
-import com.ipter.dto.ProjectResponse;
-import com.ipter.model.ProjectStatus;
-import com.ipter.service.ProjectService;
-import jakarta.validation.Valid;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,13 +14,27 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import com.ipter.dto.CreateProjectRequest;
+import com.ipter.dto.ImageDataViewDTO;
+import com.ipter.dto.ProcessPdfResponse;
+import com.ipter.dto.ProjectDataViewDTO;
+import com.ipter.dto.ProjectResponse;
+import com.ipter.model.ProjectStatus;
+import com.ipter.service.DataViewService;
+import com.ipter.service.ProjectService;
+
+import jakarta.validation.Valid;
 
 /**
  * Controller for project management operations
@@ -33,10 +45,13 @@ import java.util.UUID;
 public class ProjectController {
     
     private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
-    
+
     @Autowired
     private ProjectService projectService;
-    
+
+    @Autowired
+    private DataViewService dataViewService;
+
     /**
      * Create a new project
      */
@@ -176,6 +191,54 @@ public class ProjectController {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * View image data - compare single image extracted data with master data
+     */
+    @GetMapping("/images/{imageId}/view-data")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    public ResponseEntity<?> viewImageData(@PathVariable UUID imageId) {
+        try {
+            ImageDataViewDTO imageDataView = dataViewService.getImageDataView(imageId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Image data retrieved successfully");
+            response.put("data", imageDataView);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error retrieving image data view for image {}: {}", imageId, e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    /**
+     * View project data - compare all images in project with master data
+     */
+    @GetMapping("/{projectId}/view-data")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    public ResponseEntity<?> viewProjectData(@PathVariable UUID projectId) {
+        try {
+            ProjectDataViewDTO projectDataView = dataViewService.getProjectDataView(projectId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Project data retrieved successfully");
+            response.put("data", projectDataView);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error retrieving project data view for project {}: {}", projectId, e.getMessage());
+
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 }

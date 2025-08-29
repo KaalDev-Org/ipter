@@ -1,15 +1,23 @@
 package com.ipter.service;
 
-import com.ipter.config.AIServiceConfig;
-import com.ipter.dto.*;
-import com.ipter.model.*;
-import com.ipter.repository.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -19,16 +27,21 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import com.ipter.config.AIServiceConfig;
+import com.ipter.dto.ImageProcessingResponse;
+import com.ipter.dto.ImageUploadRequest;
+import com.ipter.dto.ImageUploadResponse;
+import com.ipter.dto.OCRResultDTO;
+import com.ipter.model.ExtractedData;
+import com.ipter.model.ExtractionType;
+import com.ipter.model.Image;
+import com.ipter.model.ProcessingStatus;
+import com.ipter.model.Project;
+import com.ipter.model.User;
+import com.ipter.repository.ExtractedDataRepository;
+import com.ipter.repository.ImageRepository;
+import com.ipter.repository.ProjectRepository;
+import com.ipter.repository.UserRepository;
 
 /**
  * Service for handling image upload, processing, and OCR operations
@@ -486,5 +499,26 @@ public class ImageService {
         }
 
         return filename.substring(lastDotIndex);
+    }
+
+    /**
+     * Save OCR results inline for a freshly uploaded image without re-reading file
+     */
+    public void saveExtractedDataInline(UUID imageId, OCRResultDTO ocrResult) {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
+        if (ocrResult == null) {
+            throw new IllegalArgumentException("OCR result is null");
+        }
+        if (ocrResult.getSuccess()) {
+            saveExtractedData(image, ocrResult);
+            updateImageWithResults(image, ocrResult);
+            image.setProcessingStatus(ProcessingStatus.COMPLETED);
+            image.setProcessedAt(LocalDateTime.now());
+        } else {
+            image.setProcessingStatus(ProcessingStatus.FAILED);
+            image.setErrorMessage(ocrResult.getErrorMessage());
+        }
+        imageRepository.save(image);
     }
 }

@@ -10,8 +10,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,8 +24,7 @@ import com.ipter.dto.ImageProcessingResponse;
 import com.ipter.dto.ImageUploadRequest;
 import com.ipter.dto.ImageUploadResponse;
 import com.ipter.dto.OCRResultDTO;
-import com.ipter.model.Project;
-import com.ipter.model.User;
+import com.ipter.dto.UploadAndExtractResponse;
 import com.ipter.repository.ProjectRepository;
 import com.ipter.repository.UserRepository;
 import com.ipter.service.GeminiService;
@@ -61,13 +58,13 @@ public class ImageController {
      * Upload an image for processing
      */
     @PostMapping("/upload")
-    @PreAuthorize("hasRole('USER') or hasRole('SUPER_USER') or hasRole('ADMINISTRATOR')")
+    @PreAuthorize("false") // disabled legacy endpoint
     public ResponseEntity<?> uploadImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam("projectId") UUID projectId,
             @RequestParam(value = "description", required = false) String description,
             @RequestParam(value = "processImmediately", defaultValue = "true") boolean processImmediately) {
-        
+
         try {
             logger.info("Uploading image: {} for project: {}", file.getOriginalFilename(), projectId);
             
@@ -99,35 +96,16 @@ public class ImageController {
      * Upload image with request body (alternative endpoint)
      */
     @PostMapping("/upload-with-request")
-    @PreAuthorize("hasRole('USER') or hasRole('SUPER_USER') or hasRole('ADMINISTRATOR')")
+    @PreAuthorize("false") // disabled legacy endpoint
     public ResponseEntity<?> uploadImageWithRequest(
             @RequestParam("file") MultipartFile file,
             @Valid @RequestBody ImageUploadRequest request) {
-        
-        try {
-            logger.info("Uploading image with request: {} for project: {}", 
-                       file.getOriginalFilename(), request.getProjectId());
-            
-            ImageUploadResponse response = imageService.uploadImage(file, request);
-            
-            Map<String, Object> result = new HashMap<>();
-            result.put("success", true);
-            result.put("message", "Image uploaded successfully");
-            result.put("data", response);
-            
-            return ResponseEntity.ok(result);
-            
-        } catch (Exception e) {
-            logger.error("Error uploading image with request: {}", e.getMessage());
-            
-            Map<String, Object> error = new HashMap<>();
-            error.put("success", false);
-            error.put("error", e.getMessage());
-            
-            return ResponseEntity.badRequest().body(error);
-        }
+        Map<String, Object> error = new HashMap<>();
+        error.put("success", false);
+        error.put("error", "Endpoint deprecated. Use /images/upload-and-extract instead.");
+        return ResponseEntity.status(410).body(error);
     }
-    
+
     /**
      * Process an uploaded image
      */
@@ -292,86 +270,56 @@ public class ImageController {
     }
 
     /**
-     * Production-ready Gemini API integration endpoint (PROTECTED)
-     * Extract container numbers using Gemini and associate with project
+     * Single production endpoint: Upload image and extract container IDs via Gemini
+     * - Saves image metadata
+     * - Runs Gemini extraction immediately
+     * - Saves extracted data
+     * - Returns unified response
      */
-    @PostMapping("/extract-containers-gemini")
-    public ResponseEntity<?> extractContainersWithGemini(
+    @PostMapping("/upload-and-extract")
+    @PreAuthorize("hasRole('USER') or hasRole('SUPER_USER') or hasRole('ADMINISTRATOR')")
+    public ResponseEntity<?> uploadAndExtract(
             @RequestParam("file") MultipartFile file,
             @RequestParam("projectId") UUID projectId,
             @RequestParam(value = "description", required = false) String description) {
         try {
-            logger.info("Production Gemini container extraction for: {} (Project: {})",
-                       file.getOriginalFilename(), projectId);
+            logger.info("Upload-and-extract for: {} (Project: {})", file.getOriginalFilename(), projectId);
 
-            // Get current user (handle case where auth might be bypassed)
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            User user = null;
-            String username = "system"; // Default fallback
+            // Reuse upload image logic but force immediate processing disabled (we'll do inline)
+            ImageUploadRequest uploadRequest = new ImageUploadRequest(projectId, description, false);
+            ImageUploadResponse uploadResp = imageService.uploadImage(file, uploadRequest);
 
-            if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
-                username = auth.getName();
-                user = userRepository.findByUsername(username).orElse(null);
-            }
-
-            // If no authenticated user, try to find admin user as fallback
-            if (user == null) {
-                user = userRepository.findByUsername("admin").orElse(null);
-                username = user != null ? user.getUsername() : "system";
-            }
-
-            // Get and validate project
-            Project project = projectRepository.findById(projectId)
-                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
-
-            // Validate file
-            if (file.isEmpty()) {
-                throw new IllegalArgumentException("File is empty");
-            }
-
-            // Validate file size and type (using existing validation from ImageService)
-            if (file.getSize() > 50 * 1024 * 1024) { // 50MB limit
-                throw new IllegalArgumentException("File size exceeds 50MB limit");
-            }
-
-            // Call Gemini service directly
+            // Load image entity and process inline
             byte[] imageBytes = file.getBytes();
-            OCRResultDTO result = geminiService.extractContainerNumbers(
-                imageBytes,
-                file.getOriginalFilename(),
-                file.getContentType()
-            );
+            OCRResultDTO ocr = geminiService.extractContainerNumbers(imageBytes, file.getOriginalFilename(), file.getContentType());
 
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", result.getSuccess());
-            response.put("filename", result.getFilename());
-            response.put("extractedText", result.getExtractedText());
-            response.put("containerNumbers", result.getContainerNumbers());
-            response.put("confidence", result.getConfidence());
-            response.put("processingMetadata", result.getProcessingMetadata());
-            response.put("message", "Production Gemini API integration successful");
-
-            // Add project and user information
-            response.put("projectId", project.getId());
-            response.put("projectName", project.getName());
-            response.put("userId", user != null ? user.getId() : "system");
-            response.put("username", username);
-            response.put("description", description);
-            response.put("timestamp", java.time.LocalDateTime.now());
-
-            if (!result.getSuccess()) {
-                response.put("errorMessage", result.getErrorMessage());
+            // Save extracted data and update image metadata
+            if (ocr.getSuccess()) {
+                imageService.saveExtractedDataInline(uploadResp.getImageId(), ocr);
             }
 
-            return ResponseEntity.ok(response);
+            UploadAndExtractResponse response = new UploadAndExtractResponse();
+            response.setImageId(uploadResp.getImageId());
+            response.setProjectId(uploadResp.getProjectId());
+            response.setImageName(uploadResp.getOriginalFilename());
+            response.setUploadedAt(uploadResp.getUploadedAt());
+            response.setSuccess(ocr.getSuccess());
+            response.setMessage(ocr.getSuccess() ? "Extraction successful" : ("Extraction failed: " + ocr.getErrorMessage()));
+            response.setExtractedText(ocr.getExtractedText());
+            response.setContainerNumbers(ocr.getContainerNumbers());
+            response.setConfidence(ocr.getConfidence());
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("message", "Image uploaded and processed successfully");
+            result.put("data", response);
+
+            return ResponseEntity.ok(result);
 
         } catch (Exception e) {
-            logger.error("Error testing Gemini extraction: {}", e.getMessage());
-
+            logger.error("Error in upload-and-extract: {}", e.getMessage());
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
             error.put("error", e.getMessage());
-
             return ResponseEntity.badRequest().body(error);
         }
     }
