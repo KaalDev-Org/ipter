@@ -123,4 +123,15 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
      */
     @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus != 'PENDING' AND a.reviewedAt BETWEEN :startDate AND :endDate ORDER BY a.reviewedAt DESC")
     List<AuditLog> findReviewedLogsByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Find audit logs by review session
+     */
+    List<AuditLog> findByReviewSession(com.ipter.model.ReviewSession reviewSession);
+
+    /**
+     * Find audit logs by review session ordered by timestamp
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.reviewSession = :reviewSession ORDER BY a.timestamp DESC")
+    List<AuditLog> findByReviewSessionOrderByTimestampDesc(@Param("reviewSession") com.ipter.model.ReviewSession reviewSession);
 }

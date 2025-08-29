@@ -45,6 +45,7 @@ public class AuditLog {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performed_by")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
     private User performedBy;
     
     @Column(nullable = false)
@@ -70,6 +71,11 @@ public class AuditLog {
 
     @Size(max = 1000, message = "Review comments cannot exceed 1000 characters")
     private String reviewComments;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "review_session_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private ReviewSession reviewSession;
 
     // Constructors
     public AuditLog() {}
@@ -187,5 +193,13 @@ public class AuditLog {
 
     public void setReviewComments(String reviewComments) {
         this.reviewComments = reviewComments;
+    }
+
+    public ReviewSession getReviewSession() {
+        return reviewSession;
+    }
+
+    public void setReviewSession(ReviewSession reviewSession) {
+        this.reviewSession = reviewSession;
     }
 }
