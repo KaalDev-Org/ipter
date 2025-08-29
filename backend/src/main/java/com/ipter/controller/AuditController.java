@@ -27,6 +27,9 @@ import jakarta.validation.Valid;
 
 import com.ipter.dto.AuditLogReviewRequest;
 import com.ipter.dto.AuditLogReviewResponse;
+import com.ipter.dto.BulkAuditLogReviewRequest;
+import com.ipter.dto.BulkReviewResponse;
+import com.ipter.dto.ReviewSessionResponse;
 import com.ipter.model.AuditLog;
 import com.ipter.model.ReviewStatus;
 import com.ipter.model.User;
@@ -283,6 +286,60 @@ public class AuditController {
         try {
             AuditService.ReviewStatistics stats = auditService.getReviewStatistics();
             return ResponseEntity.ok(stats);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Bulk review all pending audit logs
+     */
+    @PostMapping("/bulk-review")
+    public ResponseEntity<?> bulkReviewPendingLogs(@Valid @RequestBody BulkAuditLogReviewRequest request,
+                                                  Authentication authentication) {
+        try {
+            User reviewer = userManagementService.findByUsername(authentication.getName());
+            BulkReviewResponse response = auditService.bulkReviewPendingLogs(request, reviewer);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Get all review sessions
+     */
+    @GetMapping("/review-sessions")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    public ResponseEntity<?> getAllReviewSessions() {
+        try {
+            List<ReviewSessionResponse> reviewSessions = auditService.getAllReviewSessions();
+            return ResponseEntity.ok(reviewSessions);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Get audit logs by review session
+     */
+    @GetMapping("/review-session/{reviewSessionId}/logs")
+    public ResponseEntity<?> getAuditLogsByReviewSession(@PathVariable UUID reviewSessionId) {
+        try {
+            List<AuditLogReviewResponse> auditLogs = auditService.getAuditLogsByReviewSession(reviewSessionId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("auditLogs", auditLogs);
+            response.put("count", auditLogs.size());
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());

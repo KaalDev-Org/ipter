@@ -51,22 +51,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         // Once we get the token validate it
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            
+
             UserDetails userDetails = this.userDetailsService.loadUserByUsername(username);
-            
+
+            // Debug logging
+            logger.info("JWT Authentication - Username: " + username);
+            logger.info("JWT Authentication - User authorities: " + userDetails.getAuthorities());
+
             // If token is valid configure Spring Security to manually set authentication
             if (jwtUtil.validateToken(jwtToken, userDetails)) {
-                
-                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken = 
+
+                UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
                     new UsernamePasswordAuthenticationToken(
                         userDetails, null, userDetails.getAuthorities());
-                        
+
                 usernamePasswordAuthenticationToken
                     .setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    
+
                 // After setting the Authentication in the context, we specify
                 // that the current user is authenticated. So it passes the Spring Security Configurations successfully.
                 SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+
+                logger.info("JWT Authentication successful for user: " + username + " with authorities: " + userDetails.getAuthorities());
+            } else {
+                logger.warn("JWT token validation failed for user: " + username);
             }
         }
         

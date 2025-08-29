@@ -61,6 +61,7 @@ const Navbar: React.FC = () => {
     }
 
     // Non-admin users get upload image FIRST (primary functionality)
+    // Admin users should NOT see upload image option
     if (userRole !== 'ADMINISTRATOR') {
       navigationItems.push({
         id: 'upload-image',
@@ -71,7 +72,7 @@ const Navbar: React.FC = () => {
     }
 
     // Users with canCreateProjects permission get project management
-    if (user?.canCreateProjects) {
+    if (user?.canCreateProjects || userRole === 'ADMINISTRATOR') {
       navigationItems.push({
         id: 'project-management',
         label: 'Project Management',
@@ -88,8 +89,9 @@ const Navbar: React.FC = () => {
       path: '/project-data'
     });
 
-    // Users with canViewAuditTrail permission get audit trail
-    if (user?.canViewAuditTrail) {
+    // ONLY administrators can access audit trail (backend restriction)
+    // Backend has @PreAuthorize("hasRole('ADMINISTRATOR')") on audit controller
+    if (userRole === 'ADMINISTRATOR') {
       navigationItems.push({
         id: 'view-audit-trail',
         label: 'View Audit Trail',

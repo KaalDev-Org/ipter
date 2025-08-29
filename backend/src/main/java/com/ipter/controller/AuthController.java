@@ -1,5 +1,6 @@
 package com.ipter.controller;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,6 +19,7 @@ import com.ipter.dto.LoginRequest;
 import com.ipter.dto.LoginResponse;
 import com.ipter.dto.RegisterRequest;
 import com.ipter.model.User;
+import com.ipter.model.UserRole;
 import com.ipter.service.AuthService;
 import com.ipter.service.SessionManagementService;
 
@@ -102,7 +104,35 @@ public class AuthController {
             return ResponseEntity.badRequest().body(error);
         }
     }
-    
+
+    /**
+     * Debug endpoint to check authentication and role
+     */
+    @GetMapping("/debug")
+    public ResponseEntity<?> debugAuth(@RequestHeader("Authorization") String token) {
+        try {
+            // Remove "Bearer " prefix
+            String jwtToken = token.substring(7);
+            User user = authService.getCurrentUser(jwtToken);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("authenticated", true);
+            response.put("username", user.getUsername());
+            response.put("userRole", user.getRole());
+            response.put("isAdmin", user.getRole() == UserRole.ADMINISTRATOR);
+            response.put("timestamp", LocalDateTime.now());
+            response.put("tokenValid", true);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("authenticated", false);
+            error.put("error", e.getMessage());
+            error.put("timestamp", LocalDateTime.now());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
     /**
      * Logout endpoint
      */
