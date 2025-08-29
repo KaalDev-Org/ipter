@@ -45,6 +45,7 @@ public class AuditLog {
     
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "performed_by")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
     private User performedBy;
     
     @Column(nullable = false)

@@ -155,72 +155,24 @@ public class ProjectController {
     }
     
     /**
-     * Upload PDF file for master data extraction
+     * Upload and process PDF in a single step (Option A)
      */
-    @PostMapping("/{projectId}/upload-pdf")
+    @PostMapping("/{projectId}/upload-and-process-pdf")
     @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
-    public ResponseEntity<?> uploadPdfFile(
+    public ResponseEntity<?> uploadAndProcessPdf(
             @PathVariable UUID projectId,
-            @RequestParam("file") MultipartFile file) {
-        try {
-            ProjectResponse project = projectService.uploadPdfFile(projectId, file);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "PDF file uploaded successfully");
-            response.put("project", project);
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            logger.error("Error uploading PDF for project {}: {}", projectId, e.getMessage());
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
-    }
-    
-    /**
-     * Process PDF file to extract master data
-     */
-    @PostMapping("/{projectId}/process-pdf")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
-    public ResponseEntity<?> processPdfFile(
-            @PathVariable UUID projectId,
+            @RequestParam("file") MultipartFile file,
             @RequestParam(defaultValue = "false") boolean forceReprocess) {
         try {
-            ProcessPdfRequest request = new ProcessPdfRequest(projectId);
-            request.setForceReprocess(forceReprocess);
-            
-            ProcessPdfResponse response = projectService.processPdfFile(request);
-            
+            ProcessPdfResponse response = projectService.uploadAndProcessPdf(projectId, file, forceReprocess);
+
             Map<String, Object> result = new HashMap<>();
             result.put("message", "PDF processed successfully");
             result.put("result", response);
-            
+
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            logger.error("Error processing PDF for project {}: {}", projectId, e.getMessage());
-            Map<String, String> error = new HashMap<>();
-            error.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(error);
-        }
-    }
-    
-    /**
-     * Process PDF file with request body
-     */
-    @PostMapping("/process-pdf")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
-    public ResponseEntity<?> processPdfFile(@Valid @RequestBody ProcessPdfRequest request) {
-        try {
-            ProcessPdfResponse response = projectService.processPdfFile(request);
-            
-            Map<String, Object> result = new HashMap<>();
-            result.put("message", "PDF processed successfully");
-            result.put("result", response);
-            
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            logger.error("Error processing PDF for project {}: {}", request.getProjectId(), e.getMessage());
+            logger.error("Error uploading/processing PDF for project {}: {}", projectId, e.getMessage());
             Map<String, String> error = new HashMap<>();
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);

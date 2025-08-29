@@ -1,16 +1,16 @@
 package com.ipter.service;
 
-import com.ipter.dto.CreateProjectRequest;
-import com.ipter.dto.ProcessPdfRequest;
-import com.ipter.dto.ProcessPdfResponse;
-import com.ipter.dto.ProjectResponse;
-import com.ipter.model.MasterData;
-import com.ipter.model.Project;
-import com.ipter.model.ProjectStatus;
-import com.ipter.model.User;
-import com.ipter.repository.MasterDataRepository;
-import com.ipter.repository.ProjectRepository;
-import com.ipter.repository.UserRepository;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,18 +23,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import com.ipter.dto.CreateProjectRequest;
+import com.ipter.dto.ProcessPdfRequest;
+import com.ipter.dto.ProcessPdfResponse;
+import com.ipter.dto.ProjectResponse;
+import com.ipter.model.MasterData;
+import com.ipter.model.Project;
+import com.ipter.model.ProjectStatus;
+import com.ipter.model.User;
+import com.ipter.repository.MasterDataRepository;
+import com.ipter.repository.ProjectRepository;
+import com.ipter.repository.UserRepository;
 
 /**
  * Service for project management operations
@@ -56,7 +55,10 @@ public class ProjectService {
     
     @Autowired
     private AuditService auditService;
-    
+
+    @Autowired
+    private GeminiService geminiService;
+
     /**
      * Create a new project
      */
@@ -155,108 +157,141 @@ public class ProjectService {
     }
     
     /**
-     * Upload and process PDF file for master data extraction
+     * Upload and immediately process a PDF for master data extraction
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
-    public ProjectResponse uploadPdfFile(UUID projectId, MultipartFile file) throws Exception {
+    public ProcessPdfResponse uploadAndProcessPdf(UUID projectId, MultipartFile file, boolean forceReprocess) throws Exception {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
-        
+
         if (file.isEmpty()) {
             throw new Exception("PDF file is required");
         }
-        
-        if (!file.getContentType().equals("application/pdf")) {
+
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.equalsIgnoreCase("application/pdf")) {
             throw new Exception("Only PDF files are allowed");
         }
-        
+
         // Save file to uploads directory
         String uploadDir = "./uploads/pdfs/";
         Path uploadPath = Paths.get(uploadDir);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
-        
-        String fileName = projectId + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
+
+        String fileName = project.getName() + "_" + System.currentTimeMillis() + "_" + file.getOriginalFilename();
         Path filePath = uploadPath.resolve(fileName);
         Files.copy(file.getInputStream(), filePath);
-        
+
         // Update project with PDF file path
         project.setPdfFilePath(filePath.toString());
         project.setUpdatedAt(LocalDateTime.now());
-        
-        Project savedProject = projectRepository.save(project);
-        
+        projectRepository.save(project);
+
         // Log audit event
-        auditService.logPdfUpload(savedProject, fileName, getCurrentUser());
-        
-        logger.info("PDF file uploaded for project: {} by user: {}", 
-                   savedProject.getName(), getCurrentUser().getUsername());
-        
-        return new ProjectResponse(savedProject);
+        auditService.logPdfUpload(project, fileName, getCurrentUser());
+
+        // Immediate processing
+        ProcessPdfRequest request = new ProcessPdfRequest(projectId);
+        request.setForceReprocess(forceReprocess);
+        request.setPdfFilePath(filePath.toString());
+        return processPdfFile(request);
     }
     
     /**
-     * Process PDF file to extract master data (dummy implementation for now)
+     * Process PDF file to extract master data using Gemini API
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
     public ProcessPdfResponse processPdfFile(ProcessPdfRequest request) throws Exception {
         long startTime = System.currentTimeMillis();
-        
+
         Project project = projectRepository.findById(request.getProjectId())
                 .orElseThrow(() -> new Exception("Project not found with ID: " + request.getProjectId()));
-        
+
         if (project.isMasterDataProcessed() && !request.isForceReprocess()) {
             throw new Exception("Master data already processed for this project. Use forceReprocess=true to reprocess.");
         }
-        
-        // For now, create dummy master data for testing
-        List<String> dummyContainerNumbers = generateDummyContainerNumbers();
-        
+
+        // Determine PDF file path
+        String pdfPath = request.getPdfFilePath() != null && !request.getPdfFilePath().isBlank()
+                ? request.getPdfFilePath()
+                : project.getPdfFilePath();
+        if (pdfPath == null || pdfPath.isBlank()) {
+            throw new Exception("No PDF file is associated with this project. Please upload a PDF first.");
+        }
+        Path pdfFilePath = Paths.get(pdfPath);
+        if (!Files.exists(pdfFilePath)) {
+            throw new Exception("PDF file not found at path: " + pdfPath);
+        }
+
         // Clear existing master data if reprocessing
         if (request.isForceReprocess()) {
             masterDataRepository.deleteByProject(project);
             project.getMasterData().clear();
         }
-        
-        // Create master data entries
+
         List<MasterData> masterDataList = new ArrayList<>();
-        for (String containerNumber : dummyContainerNumbers) {
-            MasterData masterData = new MasterData(project, containerNumber);
-            masterData.setConfidenceScore(0.95); // Dummy confidence score
-            masterData.setLineNumber(masterDataList.size() + 1);
-            masterData.setPageNumber(1);
-            masterData.setRawText("Container: " + containerNumber);
-            masterDataList.add(masterData);
+        List<String> extractedNumbers = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
+
+        // Read entire PDF and send directly to Gemini
+        byte[] pdfBytes = Files.readAllBytes(pdfFilePath);
+        com.ipter.dto.OCRResultDTO ocr = geminiService.extractContainerNumbersFromPdf(pdfBytes, pdfFilePath.getFileName().toString());
+
+        int lineCounter = 0;
+        if (Boolean.TRUE.equals(ocr.getSuccess()) && ocr.getContainerNumbers() != null) {
+            for (com.ipter.dto.OCRResultDTO.ContainerNumberDTO c : ocr.getContainerNumbers()) {
+                String normalized = com.ipter.util.ImageProcessingUtil.normalizeContainerNumber(c.getNumber());
+                if (normalized == null || normalized.isBlank()) continue;
+                boolean seen = extractedNumbers.stream().anyMatch(n -> n.equalsIgnoreCase(normalized));
+                if (!seen) {
+                    extractedNumbers.add(normalized);
+
+                    MasterData md = new MasterData(project, normalized);
+                    md.setConfidenceScore(c.getConfidence());
+                    md.setLineNumber(++lineCounter);
+                    md.setPageNumber(null);
+                    // Truncate raw text to fit database column (10000 chars max)
+                    String rawText = ocr.getExtractedText();
+                    if (rawText != null && rawText.length() > 9900) {
+                        rawText = rawText.substring(0, 9900) + "... [truncated]";
+                    }
+                    md.setRawText(rawText);
+                    masterDataList.add(md);
+                }
+            }
+        } else if (ocr.getErrorMessage() != null) {
+            errors.add(ocr.getErrorMessage());
         }
-        
-        // Save master data
-        masterDataRepository.saveAll(masterDataList);
-        
-        // Update project
+
+        // Persist master data
+        if (!masterDataList.isEmpty()) {
+            masterDataRepository.saveAll(masterDataList);
+        }
+
+        // Update project state
         project.setMasterDataProcessed(true);
         project.setMasterDataCount(masterDataList.size());
         project.setUpdatedAt(LocalDateTime.now());
         projectRepository.save(project);
-        
-        // Log audit event
+
+        // Audit
         auditService.logMasterDataProcessing(project, masterDataList.size(), getCurrentUser());
-        
+
         long processingTime = System.currentTimeMillis() - startTime;
-        
+
         ProcessPdfResponse response = new ProcessPdfResponse(
-            project.getId(), 
-            project.getName(), 
-            true, 
-            "Master data extracted successfully"
-        );
+                project.getId(), project.getName(), true,
+                errors.isEmpty() ? "Master data extracted successfully" : "Processed with warnings");
         response.setExtractedCount(masterDataList.size());
-        response.setExtractedContainerNumbers(dummyContainerNumbers);
+        response.setExtractedContainerNumbers(extractedNumbers);
+        response.setErrors(errors.isEmpty() ? null : errors);
         response.setProcessingTimeMs(processingTime);
-        
-        logger.info("PDF processed for project: {} - extracted {} container numbers in {}ms", 
-                   project.getName(), masterDataList.size(), processingTime);
-        
+
+        logger.info("PDF processed for project: {} - extracted {} container numbers in {}ms", project.getName(),
+                masterDataList.size(), processingTime);
+
         return response;
     }
     

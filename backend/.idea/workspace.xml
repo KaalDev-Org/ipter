@@ -5,14 +5,29 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="44e08c4e-2bc8-4cce-9d05-9ee5dceb1244" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/controller/AuditController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/controller/AuditController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/model/AuditLog.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/model/AuditLog.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/repository/AuditLogRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/repository/AuditLogRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/repository/ExtractedDataRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/repository/ExtractedDataRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/repository/ImageRepository.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/repository/ImageRepository.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/service/AuditService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/service/AuditService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/service/UserManagementService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/service/UserManagementService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/.env.example" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/Dockerfile" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/install-windows.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/main.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/models/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/models/ocr_models.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/requirements-minimal.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/requirements-py313.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/requirements.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/services/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/services/ocr_service.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/start.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/start.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/test_ocr.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/utils/__init__.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/utils/image_utils.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/validate_ocr.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../ai-services/verify_setup.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/controller/ImageController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/controller/ImageController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/ipter/service/ImageService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/ipter/service/ImageService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/application.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/application.properties" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -22,6 +37,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "ramkousik"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/KaalDev-Org/ipter.git",
+    "accountId": "2e26c25f-fdb9-4b4f-ac58-10b9ecddb93c"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;customColor&quot;: &quot;&quot;,
   &quot;associatedIndex&quot;: 5
@@ -38,9 +65,23 @@
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "SHARE_PROJECT_CONFIGURATION_FILES": "true",
-    "git-widget-placeholder": "audit-fix-ai-service-initial-setup"
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "D:/zipter_new/ipter/backend"
   }
 }]]></component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="backend" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="backend" />
+      <option name="filePath" />
+      <method v="2" />
+    </configuration>
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="44e08c4e-2bc8-4cce-9d05-9ee5dceb1244" name="Changes" comment="" />

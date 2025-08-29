@@ -53,13 +53,16 @@ public class ImageService {
     
     @Autowired
     private AuditService auditService;
-    
+
     @Autowired
     @Qualifier("aiServiceRestTemplate")
     private RestTemplate restTemplate;
-    
+
     @Autowired
     private AIServiceConfig aiServiceConfig;
+
+    @Autowired
+    private GeminiService geminiService;
     
     private static final String UPLOAD_DIR = "uploads/images";
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -161,8 +164,8 @@ public class ImageService {
             Path imagePath = Paths.get(image.getFilePath());
             byte[] imageBytes = Files.readAllBytes(imagePath);
             
-            // Call AI service
-            OCRResultDTO ocrResult = callAIService(imageBytes, image.getOriginalFilename());
+            // Call Gemini AI service
+            OCRResultDTO ocrResult = callGeminiService(imageBytes, image.getOriginalFilename(), image.getContentType());
             
             // Process results
             if (ocrResult.getSuccess()) {
@@ -316,7 +319,20 @@ public class ImageService {
     }
 
     /**
-     * Call AI service for OCR processing
+     * Call Gemini AI service for container number extraction
+     */
+    private OCRResultDTO callGeminiService(byte[] imageBytes, String filename, String contentType) throws Exception {
+        try {
+            logger.info("Calling Gemini service for container extraction: {}", filename);
+            return geminiService.extractContainerNumbers(imageBytes, filename, contentType);
+        } catch (Exception e) {
+            logger.error("Failed to call Gemini service: {}", e.getMessage());
+            throw new RuntimeException("Gemini service call failed", e);
+        }
+    }
+
+    /**
+     * Call AI service for OCR processing (Legacy - kept for fallback)
      */
     private OCRResultDTO callAIService(byte[] imageBytes, String filename) throws Exception {
         try {

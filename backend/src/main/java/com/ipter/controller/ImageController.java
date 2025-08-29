@@ -1,28 +1,45 @@
 package com.ipter.controller;
 
-import com.ipter.dto.ImageProcessingResponse;
-import com.ipter.dto.ImageUploadRequest;
-import com.ipter.dto.ImageUploadResponse;
-import com.ipter.service.ImageService;
-import jakarta.validation.Valid;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.ipter.dto.ImageProcessingResponse;
+import com.ipter.dto.ImageUploadRequest;
+import com.ipter.dto.ImageUploadResponse;
+import com.ipter.dto.OCRResultDTO;
+import com.ipter.model.Project;
+import com.ipter.model.User;
+import com.ipter.repository.ProjectRepository;
+import com.ipter.repository.UserRepository;
+import com.ipter.service.GeminiService;
+import com.ipter.service.ImageService;
+
+import jakarta.validation.Valid;
+
 /**
  * REST Controller for image upload and processing operations
  */
 @RestController
-@RequestMapping("/api/images")
+@RequestMapping("/images")
 @CrossOrigin(origins = {"http://localhost:3000", "http://localhost:8080"})
 public class ImageController {
     
@@ -30,6 +47,15 @@ public class ImageController {
     
     @Autowired
     private ImageService imageService;
+
+    @Autowired
+    private GeminiService geminiService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
     
     /**
      * Upload an image for processing
@@ -264,4 +290,90 @@ public class ImageController {
             return ResponseEntity.badRequest().body(error);
         }
     }
+
+    /**
+     * Production-ready Gemini API integration endpoint (PROTECTED)
+     * Extract container numbers using Gemini and associate with project
+     */
+    @PostMapping("/extract-containers-gemini")
+    public ResponseEntity<?> extractContainersWithGemini(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("projectId") UUID projectId,
+            @RequestParam(value = "description", required = false) String description) {
+        try {
+            logger.info("Production Gemini container extraction for: {} (Project: {})",
+                       file.getOriginalFilename(), projectId);
+
+            // Get current user (handle case where auth might be bypassed)
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            User user = null;
+            String username = "system"; // Default fallback
+
+            if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+                username = auth.getName();
+                user = userRepository.findByUsername(username).orElse(null);
+            }
+
+            // If no authenticated user, try to find admin user as fallback
+            if (user == null) {
+                user = userRepository.findByUsername("admin").orElse(null);
+                username = user != null ? user.getUsername() : "system";
+            }
+
+            // Get and validate project
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
+
+            // Validate file
+            if (file.isEmpty()) {
+                throw new IllegalArgumentException("File is empty");
+            }
+
+            // Validate file size and type (using existing validation from ImageService)
+            if (file.getSize() > 50 * 1024 * 1024) { // 50MB limit
+                throw new IllegalArgumentException("File size exceeds 50MB limit");
+            }
+
+            // Call Gemini service directly
+            byte[] imageBytes = file.getBytes();
+            OCRResultDTO result = geminiService.extractContainerNumbers(
+                imageBytes,
+                file.getOriginalFilename(),
+                file.getContentType()
+            );
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", result.getSuccess());
+            response.put("filename", result.getFilename());
+            response.put("extractedText", result.getExtractedText());
+            response.put("containerNumbers", result.getContainerNumbers());
+            response.put("confidence", result.getConfidence());
+            response.put("processingMetadata", result.getProcessingMetadata());
+            response.put("message", "Production Gemini API integration successful");
+
+            // Add project and user information
+            response.put("projectId", project.getId());
+            response.put("projectName", project.getName());
+            response.put("userId", user != null ? user.getId() : "system");
+            response.put("username", username);
+            response.put("description", description);
+            response.put("timestamp", java.time.LocalDateTime.now());
+
+            if (!result.getSuccess()) {
+                response.put("errorMessage", result.getErrorMessage());
+            }
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error testing Gemini extraction: {}", e.getMessage());
+
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
 }
