@@ -1,17 +1,18 @@
 package com.ipter.repository;
 
-import com.ipter.model.ExtractedData;
-import com.ipter.model.ExtractionType;
-import com.ipter.model.Image;
-import com.ipter.model.ValidationStatus;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import com.ipter.model.ExtractedData;
+import com.ipter.model.ExtractionType;
+import com.ipter.model.Image;
+import com.ipter.model.ValidationStatus;
 
 /**
  * Repository interface for ExtractedData entity
@@ -99,4 +100,10 @@ public interface ExtractedDataRepository extends JpaRepository<ExtractedData, UU
      */
     @Query("SELECT ed FROM ExtractedData ed WHERE LOWER(ed.extractedText) LIKE LOWER(CONCAT('%', :text, '%'))")
     List<ExtractedData> findByExtractedTextContainingIgnoreCase(@Param("text") String text);
+
+    /**
+     * Find extracted data by project ID through image relationship
+     */
+    @Query("SELECT ed FROM ExtractedData ed JOIN ed.image i WHERE i.project.id = :projectId")
+    List<ExtractedData> findByProjectId(@Param("projectId") UUID projectId);
 }

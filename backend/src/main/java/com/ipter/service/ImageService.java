@@ -1,15 +1,26 @@
 package com.ipter.service;
 
-import com.ipter.config.AIServiceConfig;
-import com.ipter.dto.*;
-import com.ipter.model.*;
-import com.ipter.repository.*;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.*;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -19,16 +30,24 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import com.ipter.config.AIServiceConfig;
+import com.ipter.dto.ImageProcessingResponse;
+import com.ipter.dto.ImageUploadRequest;
+import com.ipter.dto.ImageUploadResponse;
+import com.ipter.dto.OCRResultDTO;
+import com.ipter.dto.SerialNumberUpdateRequest;
+import com.ipter.dto.SerialNumberUpdateResponse;
+import com.ipter.model.ExtractedData;
+import com.ipter.model.ExtractionType;
+import com.ipter.model.Image;
+import com.ipter.model.ProcessingStatus;
+import com.ipter.model.Project;
+import com.ipter.model.User;
+import com.ipter.model.ValidationStatus;
+import com.ipter.repository.ExtractedDataRepository;
+import com.ipter.repository.ImageRepository;
+import com.ipter.repository.ProjectRepository;
+import com.ipter.repository.UserRepository;
 
 /**
  * Service for handling image upload, processing, and OCR operations
@@ -53,13 +72,16 @@ public class ImageService {
     
     @Autowired
     private AuditService auditService;
-    
+
     @Autowired
     @Qualifier("aiServiceRestTemplate")
     private RestTemplate restTemplate;
-    
+
     @Autowired
     private AIServiceConfig aiServiceConfig;
+
+    @Autowired
+    private GeminiService geminiService;
     
     private static final String UPLOAD_DIR = "uploads/images";
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -161,8 +183,8 @@ public class ImageService {
             Path imagePath = Paths.get(image.getFilePath());
             byte[] imageBytes = Files.readAllBytes(imagePath);
             
-            // Call AI service
-            OCRResultDTO ocrResult = callAIService(imageBytes, image.getOriginalFilename());
+            // Call Gemini AI service
+            OCRResultDTO ocrResult = callGeminiService(imageBytes, image.getOriginalFilename(), image.getContentType());
             
             // Process results
             if (ocrResult.getSuccess()) {
@@ -316,7 +338,20 @@ public class ImageService {
     }
 
     /**
-     * Call AI service for OCR processing
+     * Call Gemini AI service for container number extraction
+     */
+    private OCRResultDTO callGeminiService(byte[] imageBytes, String filename, String contentType) throws Exception {
+        try {
+            logger.info("Calling Gemini service for container extraction: {}", filename);
+            return geminiService.extractContainerNumbers(imageBytes, filename, contentType);
+        } catch (Exception e) {
+            logger.error("Failed to call Gemini service: {}", e.getMessage());
+            throw new RuntimeException("Gemini service call failed", e);
+        }
+    }
+
+    /**
+     * Call AI service for OCR processing (Legacy - kept for fallback)
      */
     private OCRResultDTO callAIService(byte[] imageBytes, String filename) throws Exception {
         try {
@@ -470,5 +505,149 @@ public class ImageService {
         }
 
         return filename.substring(lastDotIndex);
+    }
+
+    /**
+     * Save OCR results inline for a freshly uploaded image without re-reading file
+     */
+    public void saveExtractedDataInline(UUID imageId, OCRResultDTO ocrResult) {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
+        if (ocrResult == null) {
+            throw new IllegalArgumentException("OCR result is null");
+        }
+        if (ocrResult.getSuccess()) {
+            saveExtractedData(image, ocrResult);
+            updateImageWithResults(image, ocrResult);
+            image.setProcessingStatus(ProcessingStatus.COMPLETED);
+            image.setProcessedAt(LocalDateTime.now());
+        } else {
+            image.setProcessingStatus(ProcessingStatus.FAILED);
+            image.setErrorMessage(ocrResult.getErrorMessage());
+        }
+        imageRepository.save(image);
+    }
+
+    /**
+     * Update serial numbers after user verification
+     */
+    public SerialNumberUpdateResponse updateSerialNumbers(SerialNumberUpdateRequest request) {
+        try {
+            logger.info("Processing serial number updates for image: {} (Project: {})",
+                       request.getImageId(), request.getProjectId());
+
+            // Validate image exists
+            Image image = imageRepository.findById(request.getImageId())
+                    .orElseThrow(() -> new RuntimeException("Image not found: " + request.getImageId()));
+
+            // Validate project exists
+            Project project = projectRepository.findById(request.getProjectId())
+                    .orElseThrow(() -> new RuntimeException("Project not found: " + request.getProjectId()));
+
+            int updatedCount = 0;
+
+            // Process each updated serial number
+            if (request.getUpdatedSerials() != null) {
+                for (SerialNumberUpdateRequest.SerialNumberUpdate update : request.getUpdatedSerials()) {
+                    // Only process user-modified entries
+                    if (Boolean.TRUE.equals(update.getIsUserModified())) {
+                        // Create or update extracted data entry
+                        ExtractedData extractedData = new ExtractedData();
+                        extractedData.setImage(image);
+                        extractedData.setContainerNumber(update.getSerialNumber());
+                        extractedData.setExtractionType(ExtractionType.CONTAINER_NUMBER);
+                        extractedData.setConfidence(parseConfidenceString(update.getConfidence()));
+                        extractedData.setExtractedText(String.format("Row %d, Position %d", update.getRow(), update.getPosition()));
+                        extractedData.setValidationStatus(ValidationStatus.APPROVED);
+                        extractedData.setValidationNotes("User-modified serial number");
+                        extractedData.setProcessingEngine("User Input");
+                        extractedData.setProcessingVersion("1.0");
+                        extractedData.setExtractedAt(java.time.LocalDateTime.now());
+
+                        extractedDataRepository.save(extractedData);
+                        updatedCount++;
+
+                        logger.debug("Updated serial number: {} at Row {}, Position {}",
+                                   update.getSerialNumber(), update.getRow(), update.getPosition());
+                    }
+                }
+            }
+
+            // Update image processing status if needed
+            if (updatedCount > 0) {
+                image.setProcessingStatus(ProcessingStatus.COMPLETED);
+                image.setProcessedAt(java.time.LocalDateTime.now());
+                imageRepository.save(image);
+            }
+
+            logger.info("Successfully updated {} serial numbers for image: {}", updatedCount, request.getImageId());
+
+            return new SerialNumberUpdateResponse(
+                request.getImageId(),
+                request.getProjectId(),
+                updatedCount,
+                String.format("Successfully updated %d serial numbers", updatedCount),
+                true
+            );
+
+        } catch (Exception e) {
+            logger.error("Error updating serial numbers: {}", e.getMessage());
+            return new SerialNumberUpdateResponse(
+                request.getImageId(),
+                request.getProjectId(),
+                0,
+                "Failed to update serial numbers: " + e.getMessage(),
+                false
+            );
+        }
+    }
+
+    /**
+     * Parse confidence string to double value
+     */
+    private Double parseConfidenceString(String confidenceStr) {
+        if (confidenceStr == null || confidenceStr.trim().isEmpty()) {
+            return 100.0; // Default for user-modified entries
+        }
+
+        try {
+            // Remove % symbol if present
+            String cleanStr = confidenceStr.replace("%", "").trim();
+            return Double.parseDouble(cleanStr);
+        } catch (NumberFormatException e) {
+            logger.warn("Failed to parse confidence string: {}", confidenceStr);
+            return 100.0; // Default for user-modified entries
+        }
+    }
+
+    /**
+     * Get image resource for serving
+     */
+    public Resource getImageResource(UUID imageId) throws Exception {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
+
+        Path imagePath = Paths.get(image.getFilePath());
+        if (!Files.exists(imagePath)) {
+            throw new RuntimeException("Image file not found: " + image.getFilePath());
+        }
+
+        Resource resource = new UrlResource(imagePath.toUri());
+        if (resource.exists() && resource.isReadable()) {
+            return resource;
+        } else {
+            throw new RuntimeException("Image file is not readable: " + image.getFilePath());
+        }
+    }
+
+    /**
+     * Get image content type
+     */
+    public String getImageContentType(UUID imageId) {
+        Optional<Image> imageOpt = imageRepository.findById(imageId);
+        if (imageOpt.isPresent()) {
+            return imageOpt.get().getContentType();
+        }
+        return null;
     }
 }

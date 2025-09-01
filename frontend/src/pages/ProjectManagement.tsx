@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -8,7 +9,8 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { useToast } from '../components/ui/toast';
 import { FolderOpen, Upload, FileText, Calendar, Package, Truck, FileCheck, X, CheckCircle } from 'lucide-react';
-import { projectAPI, CreateProjectRequest, authAPI } from '../services/api';
+import { projectAPI, CreateProjectRequest, authAPI, ProjectResponse } from '../services/api';
+import ProjectCreationDialog from '../components/ProjectCreationDialog';
 
 interface ProjectFormData {
   name: string;
@@ -28,9 +30,15 @@ interface ProjectFormData {
 
 const ProjectManagement: React.FC = () => {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [showProgressDialog, setShowProgressDialog] = useState(false);
+  const [progressDialogRef, setProgressDialogRef] = useState<any>(null);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [activeProjects, setActiveProjects] = useState<ProjectResponse[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
   const {
     register,
@@ -41,8 +49,40 @@ const ProjectManagement: React.FC = () => {
     reset
   } = useForm<ProjectFormData>();
 
+  // Load active projects for statistics
+  const loadActiveProjects = useCallback(async () => {
+    try {
+      setIsLoadingProjects(true);
+      const response = await projectAPI.getActiveProjects();
+      setActiveProjects(response.projects);
+    } catch (error: any) {
+      console.error('Error loading active projects:', error);
+      // Don't show toast for stats loading errors to avoid noise
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, []);
+
+  // Load active projects on component mount
+  useEffect(() => {
+    loadActiveProjects();
+  }, [loadActiveProjects]);
+
   const onSubmit = async (data: ProjectFormData) => {
+    // Prevent multiple submissions
+    if (isExecuting) {
+      return;
+    }
+
+    // Store form data for the dialog execution
+    setProgressDialogRef(data);
+    setShowProgressDialog(true);
     setIsLoading(true);
+    setIsExecuting(true);
+  };
+
+  const executeProjectCreation = useCallback(async (controller: any) => {
+    const data = progressDialogRef as ProjectFormData;
 
     try {
       // Prepare the request data
@@ -63,51 +103,91 @@ const ProjectManagement: React.FC = () => {
       };
 
       // Step 1: Create the project
+      controller.startStep(0, 'Creating project...');
+      const startTime = Date.now();
       const response = await projectAPI.createProject(projectData);
+      const projectCreationTime = Date.now() - startTime;
       const projectId = response.project.id;
 
-      // Show success toast with project ID and name
-      showToast(
-        `Project "${response.project.name}" created successfully! ID: ${response.project.id}`,
-        'success',
-        7000
-      );
+      controller.completeStep(0, 'Project created successfully!', projectCreationTime);
 
-      // Step 2: Process PDF if file was uploaded
+      // Step 2: Process PDF if file was uploaded (using new combined API)
       if (uploadedFile) {
         try {
-          showToast('Processing PDF file...', 'info');
+          controller.startStep(1, 'Uploading and processing PDF...');
+          const pdfStartTime = Date.now();
 
-          // First upload the PDF file
-          await projectAPI.uploadPdfFile(projectId, uploadedFile);
+          // Use the new combined API for upload and processing
+          const processResult = await projectAPI.uploadAndProcessPdf(projectId, uploadedFile, false);
+          const pdfProcessingTime = Date.now() - pdfStartTime;
 
-          // Then process the PDF to extract master data
-          const processResult = await projectAPI.processPdfFile(projectId, false);
+          controller.completeStep(1, 'PDF processed successfully!', pdfProcessingTime);
 
-          if (processResult.result.success) {
-            showToast(`PDF processed successfully! Extracted ${processResult.result.extractedCount} master data entries.`, 'success');
-          } else {
-            showToast(`PDF processing completed with issues: ${processResult.result.message}`, 'error');
-          }
+          // Set the final result
+          const finalResult = {
+            projectId: response.project.id,
+            projectName: response.project.name,
+            success: processResult.result.success,
+            message: processResult.result.message,
+            extractedCount: processResult.result.extractedCount,
+            extractedContainerNumbers: processResult.result.extractedContainerNumbers,
+            errors: processResult.result.errors,
+            processingTimeMs: processResult.result.processingTimeMs || pdfProcessingTime
+          };
+
+          controller.setResult(finalResult);
+
         } catch (pdfError: any) {
           console.error('Error processing PDF:', pdfError);
-          showToast(`Project created but PDF processing failed: ${pdfError.response?.data?.error || 'Unknown error'}`, 'error');
-        }
-      }
+          const errorMsg = pdfError.response?.data?.error || 'Unknown error occurred during PDF processing';
 
-      // Reset form and uploaded file
-      reset();
-      setUploadedFile(null);
+          controller.errorStep(1, errorMsg);
+
+          // Set result with error
+          const errorResult = {
+            projectId: response.project.id,
+            projectName: response.project.name,
+            success: false,
+            message: `Project created but PDF processing failed: ${errorMsg}`,
+            errors: [errorMsg]
+          };
+
+          controller.setResult(errorResult);
+        }
+      } else {
+        // No PDF uploaded - project creation complete
+        const simpleResult = {
+          projectId: response.project.id,
+          projectName: response.project.name,
+          success: true,
+          message: 'Project created successfully! You can upload a PDF later to add master data.'
+        };
+
+        controller.setResult(simpleResult);
+      }
 
       console.log('Project created:', response.project);
     } catch (err: any) {
       console.error('Error creating project:', err);
       const errorMessage = err.response?.data?.error || 'Failed to create project. Please try again.';
-      showToast(errorMessage, 'error');
+
+      controller.errorStep(0, errorMessage);
+
+      // Set error result
+      const errorResult = {
+        projectId: '',
+        projectName: data.name,
+        success: false,
+        message: errorMessage,
+        errors: [errorMessage]
+      };
+
+      controller.setResult(errorResult);
     } finally {
       setIsLoading(false);
+      setIsExecuting(false);
     }
-  };
+  }, [progressDialogRef, uploadedFile, showToast]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -147,6 +227,34 @@ const ProjectManagement: React.FC = () => {
 
   const removeFile = () => {
     setUploadedFile(null);
+  };
+
+  const handleDialogClose = () => {
+    setShowProgressDialog(false);
+    setProgressDialogRef(null);
+    setIsExecuting(false);
+    // Reset form and uploaded file after successful creation
+    if (progressDialogRef?.result?.success) {
+      reset();
+      setUploadedFile(null);
+    }
+  };
+
+  const handleProjectComplete = (result: any) => {
+    // Show a simple success toast
+    showToast(
+      `✅ Project "${result.projectName}" is ready!`,
+      'success',
+      4000
+    );
+
+    // Reset form and execution state
+    reset();
+    setUploadedFile(null);
+    setIsExecuting(false);
+
+    // Navigate to project data page with the project ID
+    navigate(`/project-data?projectId=${result.projectId}`);
   };
 
 
@@ -554,25 +662,45 @@ const ProjectManagement: React.FC = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>Active Projects</span>
-                      <span className="font-semibold text-slate-900">24</span>
+                  {isLoadingProjects ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>This Month</span>
-                      <span className="font-semibold text-green-600">8</span>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-z-light-green rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-600">{activeProjects.length}</div>
+                        <div className="text-sm text-gray-600" style={{ fontFamily: 'Verdana, sans-serif' }}>Total Active</div>
+                      </div>
+                      <div className="bg-z-light-green rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-blue-600">
+                          {activeProjects.filter(p => p.masterDataProcessed).length}
+                        </div>
+                        <div className="text-sm text-gray-600" style={{ fontFamily: 'Verdana, sans-serif' }}>With Master Data</div>
+                      </div>
+                      <div className="bg-z-light-green rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-orange-600">
+                          {activeProjects.filter(p => !p.masterDataProcessed).length}
+                        </div>
+                        <div className="text-sm text-gray-600" style={{ fontFamily: 'Verdana, sans-serif' }}>Pending Processing</div>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600 text-sm" style={{ fontFamily: 'Verdana, sans-serif' }}>Pending Review</span>
-                      <span className="font-semibold text-purple-600">3</span>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           </div>
         </div>
+
+        {/* Project Creation Progress Dialog */}
+        <ProjectCreationDialog
+          open={showProgressDialog}
+          onClose={handleDialogClose}
+          projectName={progressDialogRef?.name || watch('name') || 'New Project'}
+          hasFile={!!uploadedFile}
+          onComplete={handleProjectComplete}
+          onExecute={executeProjectCreation}
+        />
       </div>
     </div>
   );

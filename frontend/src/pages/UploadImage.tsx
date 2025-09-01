@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Upload, Image as ImageIcon, CheckCircle, XCircle, AlertCircle, Search, FileText, Lightbulb, X, Plus } from 'lucide-react';
 import { projectAPI, ProjectResponse } from '../services/api';
 import { useToast } from '../components/ui/toast';
-import ImageVerificationDialog from '../components/ImageVerificationDialog';
+import ImageProcessingDialog from '../components/ImageProcessingDialog';
 
 interface UploadImageFormData {
   projectId: string;
@@ -372,11 +372,11 @@ const UploadImage: React.FC = () => {
                   )}
 
                   {/* Submit Button */}
-                  <div className="pt-4">
+                  <div className="pt-4 flex justify-center">
                     <Button
                       type="submit"
                       disabled={uploadedImages.length === 0 || !watchedProjectId || isVerifying}
-                      className="w-full h-12 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl disabled:opacity-50"
+                      className="h-12 px-8 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-200 rounded-xl disabled:opacity-50"
                     >
                       {isVerifying ? (
                         <>
@@ -400,12 +400,17 @@ const UploadImage: React.FC = () => {
         </div>
       </div>
 
-      {/* Verification Dialog */}
-      <ImageVerificationDialog
-        isOpen={showVerificationDialog}
+      {/* Processing Dialog */}
+      <ImageProcessingDialog
+        open={showVerificationDialog}
         onClose={() => setShowVerificationDialog(false)}
         uploadedImages={uploadedImages}
         projectName={selectedProject?.name || ''}
+        projectId={selectedProject?.id}
+        onComplete={(result) => {
+          console.log('Processing completed:', result);
+          showToast('Image verification completed successfully!', 'success');
+        }}
       />
     </div>
   );

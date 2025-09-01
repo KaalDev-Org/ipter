@@ -94,23 +94,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('refreshToken', response.refreshToken);
       }
 
-      // Create user object from response
-      const user: User = response.user ? {
-        ...response.user,
-        roles: response.user.role ? [response.user.role] : []
-      } : {
-        id: response.userId || '',
-        username: response.username || '',
-        email: response.email || '',
-        role: response.role,
-        isActive: true, // User is active if they can login
-        roles: response.role ? [response.role] : []
-      };
+      // Get full user data with permissions from getCurrentUser API
+      try {
+        const userData = await authAPI.getCurrentUser();
+        console.log('Full user data from getCurrentUser:', userData);
 
-      console.log('Setting user:', user);
-      setUser(user);
-      setMustChangePassword(response.mustChangePassword || false);
-      console.log('User set successfully');
+        const user: User = {
+          ...userData,
+          roles: userData.role ? [userData.role] : []
+        };
+
+        console.log('Setting user with full permissions:', user);
+        setUser(user);
+        setMustChangePassword(response.mustChangePassword || false);
+        console.log('User set successfully with permissions');
+      } catch (userError) {
+        console.error('Failed to get full user data, using login response:', userError);
+
+        // Fallback to login response if getCurrentUser fails
+        const user: User = response.user ? {
+          ...response.user,
+          roles: response.user.role ? [response.user.role] : []
+        } : {
+          id: response.userId || '',
+          username: response.username || '',
+          email: response.email || '',
+          role: response.role,
+          isActive: true,
+          roles: response.role ? [response.role] : []
+        };
+
+        console.log('Setting user from login response:', user);
+        setUser(user);
+        setMustChangePassword(response.mustChangePassword || false);
+      }
     } catch (error) {
       console.error('Login failed:', error);
       throw error;

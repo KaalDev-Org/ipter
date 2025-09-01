@@ -116,13 +116,21 @@ public class AuthService {
                                    user.getEmail(), user.getRole(), expiresIn, user.isMustChangePassword());
             
         } catch (AuthenticationException e) {
-            // Increment failed login attempts
+            // Check if the user exists and is inactive
             Optional<User> userOpt = userRepository.findByUsernameOrLoginIdOrEmail(request.getUsername());
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
+
+                // Check if user is inactive/disabled
+                if (!user.isActive()) {
+                    throw new BadCredentialsException("This user account is currently disabled. Please contact an administrator for assistance.");
+                }
+
+                // Increment failed login attempts for active users with wrong password
                 user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
                 userRepository.save(user);
             }
+
             throw new BadCredentialsException("Invalid username or password");
         }
     }

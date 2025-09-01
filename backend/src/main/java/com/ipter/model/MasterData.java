@@ -1,11 +1,20 @@
 package com.ipter.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * MasterData entity representing container numbers extracted from PDF files
@@ -36,7 +45,7 @@ public class MasterData {
     @Column(name = "confidence_score")
     private Double confidenceScore; // Confidence score from PDF extraction
     
-    @Column(name = "raw_text")
+    @Column(name = "raw_text", length = 10000)
     private String rawText; // Raw text from PDF before processing
     
     @Column(name = "is_validated")

@@ -102,16 +102,16 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 .requestMatchers("/swagger-ui/**").permitAll()
                 .requestMatchers("/v3/api-docs/**").permitAll()
-                
+
                 // Admin only endpoints
                 .requestMatchers("/admin/**").hasRole("ADMINISTRATOR")
                 .requestMatchers("/users/**").hasRole("ADMINISTRATOR")
-                .requestMatchers("/audit/**").hasRole("ADMINISTRATOR")
                 .requestMatchers("/sessions/**").hasRole("ADMINISTRATOR")
+                // Note: /audit/** and /projects/** now use method-level @PreAuthorize for fine-grained control
                 
-                // Super user and admin endpoints
-                .requestMatchers("/projects/*/delete").hasAnyRole("SUPER_USER", "ADMIN")
-                .requestMatchers("/images/*/delete").hasAnyRole("SUPER_USER", "ADMIN")
+                // Admin only endpoints for deletion
+                .requestMatchers("/projects/*/delete").hasRole("ADMINISTRATOR")
+                .requestMatchers("/images/*/delete").hasRole("ADMINISTRATOR")
                 
                 // Authenticated endpoints
                 .anyRequest().authenticated()

@@ -42,7 +42,6 @@ import com.ipter.service.UserManagementService;
 @RestController
 @RequestMapping("/audit")
 @CrossOrigin(origins = "*", maxAge = 3600)
-@PreAuthorize("hasRole('ADMINISTRATOR')")
 public class AuditController {
     
     @Autowired
@@ -55,6 +54,7 @@ public class AuditController {
      * Get all audit logs with pagination
      */
     @GetMapping
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     public ResponseEntity<?> getAllAuditLogs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -165,6 +165,7 @@ public class AuditController {
      * Review an audit log
      */
     @PostMapping("/review")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     public ResponseEntity<?> reviewAuditLog(@Valid @RequestBody AuditLogReviewRequest request,
                                            Authentication authentication) {
         try {
@@ -220,6 +221,7 @@ public class AuditController {
      * Get pending review logs
      */
     @GetMapping("/pending-reviews")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     public ResponseEntity<?> getPendingReviewLogs() {
         try {
             List<AuditLogReviewResponse> auditLogs = auditService.getPendingReviewLogs();
@@ -297,6 +299,7 @@ public class AuditController {
      * Bulk review all pending audit logs
      */
     @PostMapping("/bulk-review")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     public ResponseEntity<?> bulkReviewPendingLogs(@Valid @RequestBody BulkAuditLogReviewRequest request,
                                                   Authentication authentication) {
         try {
@@ -315,7 +318,7 @@ public class AuditController {
      * Get all review sessions
      */
     @GetMapping("/review-sessions")
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     public ResponseEntity<?> getAllReviewSessions() {
         try {
             List<ReviewSessionResponse> reviewSessions = auditService.getAllReviewSessions();
@@ -331,6 +334,7 @@ public class AuditController {
      * Get audit logs by review session
      */
     @GetMapping("/review-session/{reviewSessionId}/logs")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     public ResponseEntity<?> getAuditLogsByReviewSession(@PathVariable UUID reviewSessionId) {
         try {
             List<AuditLogReviewResponse> auditLogs = auditService.getAuditLogsByReviewSession(reviewSessionId);

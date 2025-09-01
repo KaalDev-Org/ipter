@@ -50,10 +50,40 @@ const AppRouter: React.FC = () => {
   const { isAuthenticated, loading, user } = useAuth();
 
   const getDefaultRoute = () => {
-    const userRole = user?.roles?.[0];
-    if (userRole === 'USER') return '/upload-image';
-    if (userRole === 'REVIEWER') return '/project-data';
-    return '/user-management'; // ADMINISTRATOR
+    const userRole = user?.roles?.[0] || user?.role;
+    console.log('AppRouter: Determining default route for user:', {
+      userRole,
+      canViewAuditTrail: user?.canViewAuditTrail,
+      canCreateProjects: user?.canCreateProjects,
+      canViewReports: user?.canViewReports,
+      user
+    });
+
+    // For USER role: always default to Upload Image (their primary function)
+    if (userRole === 'USER') {
+      return '/upload-image';
+    }
+
+    // For REVIEWER role: default to Audit Trail if they have permission
+    if (userRole === 'REVIEWER') {
+      if (user?.canViewAuditTrail === true) {
+        return '/view-audit-trail';
+      }
+      return '/project-data'; // Fallback if no audit trail access
+    }
+
+    // For ADMINISTRATOR role: default to User Management
+    if (userRole === 'ADMINISTRATOR') {
+      return '/user-management';
+    }
+
+    // Fallback: redirect to the first available page based on permissions
+    if (user?.canViewAuditTrail === true) return '/view-audit-trail';
+    if (user?.canCreateProjects === true) return '/project-management';
+    if (user?.canViewReports === true) return '/project-data';
+
+    // If user has no specific permissions, redirect to upload image
+    return '/upload-image';
   };
 
   if (loading) {
