@@ -179,41 +179,71 @@ public class GeminiService {
      */
     private String createContainerExtractionPrompt() {
         return """
-            Analyze this image and extract all container numbers/serial numbers visible in the image.
-            Container numbers typically follow the ISO 6346 standard format: 4 letters followed by 7 digits (e.g., ABCD1234567).
-            
-            Please organize the extracted container numbers in a structured format with rows and columns.
-            For each container number found, provide a confidence level as a percentage.
-            
-            Return the results in the following JSON format:
+            CRITICAL: You are analyzing an image containing pharmaceutical products or medical containers arranged in a grid pattern. Your PRIMARY task is to accurately detect the grid structure and extract serial numbers from each position.
+
+            GRID DETECTION (HIGHEST PRIORITY):
+            1. FIRST: Count the EXACT number of rows and columns in the product grid
+            2. Look carefully at the physical arrangement - products may be in 2x3, 3x2, 4x2, 5x3, 6x2, etc.
+            3. Count ALL visible product positions, even if some serial numbers are unreadable
+            4. The grid structure MUST reflect the actual physical layout you observe
+            5. Do NOT limit yourself to small grids - accurately count larger arrangements (up to 8 columns, 6 rows)
+
+            SERIAL NUMBER EXTRACTION:
+            1. CAREFULLY examine each product/container in the image - they are DIFFERENT products with DIFFERENT serial numbers
+            2. DO NOT repeat the same serial number multiple times - each product has its own unique identifier
+            3. Look for serial numbers, lot numbers, batch numbers, or container identifiers on each individual product
+            4. Serial numbers may be in various formats: alphanumeric codes, numbers with letters, etc.
+            5. If you cannot clearly read a serial number, provide your best estimate and reduce the confidence accordingly
+            6. If a serial number is unclear or partially obscured, still attempt to extract it but lower the confidence (e.g., 60-80%)
+            7. NEVER make up or duplicate serial numbers - each extracted number must correspond to a visible product
+            8. For positions where you cannot extract any serial number, omit that position from the row data
+
+            SYSTEMATIC APPROACH:
+            - Count rows from top to bottom (1, 2, 3, 4, 5, 6...)
+            - Count columns from left to right (1, 2, 3, 4, 5, 6, 7, 8...)
+            - Work systematically through each position
+            - Extract serial numbers where possible, skip positions where impossible
+
+            RESPONSE FORMAT:
+            You MUST return results in this EXACT JSON format. Adapt the number of rows and positions based on what you actually see:
             {
+              "grid_structure": {
+                "rows": [ACTUAL_ROW_COUNT],
+                "columns": [ACTUAL_COLUMN_COUNT],
+                "total_products": [ACTUAL_TOTAL_COUNT]
+              },
               "row1": {
-                "1": "container_number_1", "confidence": "100%",
-                "2": "container_number_2", "confidence": "95%",
-                "3": "container_number_3", "confidence": "90%",
-                "4": "container_number_4", "confidence": "85%",
-                "5": "container_number_5", "confidence": "80%"
+                "1": "ACTUAL_SERIAL_1", "confidence": "95%",
+                "2": "ACTUAL_SERIAL_2", "confidence": "90%",
+                "3": "ACTUAL_SERIAL_3", "confidence": "85%"
               },
               "row2": {
-                "1": "container_number_6", "confidence": "100%",
-                "2": "container_number_7", "confidence": "95%",
-                "3": "container_number_8", "confidence": "90%",
-                "4": "container_number_9", "confidence": "85%",
-                "5": "container_number_10", "confidence": "80%"
-              },
-              "row3": {
-                "1": "container_number_11", "confidence": "100%",
-                "2": "container_number_12", "confidence": "95%",
-                "3": "container_number_13", "confidence": "90%",
-                "4": "container_number_14", "confidence": "85%",
-                "5": "container_number_15", "confidence": "80%"
+                "1": "ACTUAL_SERIAL_4", "confidence": "92%",
+                "2": "ACTUAL_SERIAL_5", "confidence": "88%",
+                "3": "ACTUAL_SERIAL_6", "confidence": "93%"
               }
             }
-            
-            If fewer container numbers are found, only include the rows and positions that have actual container numbers.
-            If no container numbers are found, return an empty object: {}
-            
-            Focus on accuracy and only include text that clearly appears to be container numbers.
+
+            CRITICAL REQUIREMENTS:
+            - The "grid_structure" field is MANDATORY and must contain the EXACT dimensions you observe
+            - Include ALL rows you see, even if some positions have no extractable serial numbers
+            - Only include positions in row data where you can extract a serial number
+            - Maximum supported: 8 columns, 6 rows (adjust based on actual image)
+
+            CONFIDENCE GUIDELINES:
+            - 95-100%: Serial number is crystal clear and fully readable
+            - 85-94%: Serial number is mostly clear with minor uncertainty
+            - 70-84%: Serial number is readable but some characters are unclear
+            - 50-69%: Serial number is partially obscured but best guess provided
+            - Below 50%: Do not include unless you're reasonably confident
+
+            QUALITY CONTROL:
+            - Verify the grid structure matches the physical layout exactly
+            - Ensure no duplicate serial numbers in your response
+            - Double-check that each extracted serial number corresponds to a visible product
+            - If unsure about a character, provide your best interpretation
+
+            Focus on ACCURATE GRID DETECTION first, then UNIQUE SERIAL EXTRACTION. The grid structure is more important than extracting every serial number.
             """;
     }
     
@@ -281,7 +311,8 @@ public class GeminiService {
                 }
             }
             String jsonResponse = sb.toString();
-            logger.debug("Gemini API response length: {}", jsonResponse.length());
+            logger.info("Gemini API response length: {}", jsonResponse.length());
+            logger.info("Raw Gemini response: {}", jsonResponse);
 
             // Parse the structured JSON response
             ContainerExtractionResultDTO extractionResult = parseContainerExtractionResult(jsonResponse);
@@ -309,42 +340,87 @@ public class GeminiService {
     /**
      * Parse Gemini's JSON response (rows/columns structure for images)
      */
+    @SuppressWarnings("unchecked")
     private ContainerExtractionResultDTO parseGeminiJsonResponse(String jsonResponse) throws JsonProcessingException {
         try {
             Map<String, Object> jsonMap = objectMapper.readValue(jsonResponse, Map.class);
             ContainerExtractionResultDTO result = new ContainerExtractionResultDTO();
             Map<String, ContainerExtractionResultDTO.RowData> rows = new HashMap<>();
+
+            // Extract and store grid structure information
+            if (jsonMap.containsKey("grid_structure")) {
+                Map<String, Object> gridStructure = (Map<String, Object>) jsonMap.get("grid_structure");
+                logger.info("Grid structure detected: rows={}, columns={}, total_products={}",
+                    gridStructure.get("rows"), gridStructure.get("columns"), gridStructure.get("total_products"));
+
+                // Store grid structure in result for later use
+                result.setGridStructure(gridStructure);
+            }
+
             for (Map.Entry<String, Object> rowEntry : jsonMap.entrySet()) {
                 String rowKey = rowEntry.getKey();
                 if (rowKey.startsWith("row") && rowEntry.getValue() instanceof Map) {
                     Map<String, Object> rowMap = (Map<String, Object>) rowEntry.getValue();
                     ContainerExtractionResultDTO.RowData rowData = new ContainerExtractionResultDTO.RowData();
-                    String currentConfidence = "95%"; // default
+
                     for (Map.Entry<String, Object> posEntry : rowMap.entrySet()) {
                         String posKey = posEntry.getKey();
                         String value = String.valueOf(posEntry.getValue());
+
                         if (posKey.equals("confidence")) {
-                            currentConfidence = value;
+                            // Skip confidence entries that apply to the whole row
+                            continue;
                         } else {
                             try {
                                 int position = Integer.parseInt(posKey);
-                                if (position >= 1 && position <= 5) {
-                                    rowData.setEntry(position, value, currentConfidence);
+                                // Increased from 5 to 8 to support larger grids
+                                if (position >= 1 && position <= 8) {
+                                    if (value != null && !value.trim().isEmpty() &&
+                                        !value.equals("null") && !value.equals("N/A")) {
+
+                                        // Look for individual confidence or use default
+                                        String confidence = "95%"; // default
+                                        String confidenceKey = "confidence";
+                                        if (rowMap.containsKey(confidenceKey)) {
+                                            confidence = String.valueOf(rowMap.get(confidenceKey));
+                                        }
+
+                                        rowData.setEntry(position, value.trim(), confidence);
+                                        logger.debug("Extracted container: {} at position {} with confidence {}",
+                                            value.trim(), position, confidence);
+                                    }
                                 }
-                            } catch (NumberFormatException ignored) {}
+                            } catch (NumberFormatException ignored) {
+                                // Skip non-numeric keys
+                            }
                         }
                     }
-                    rows.put(rowKey, rowData);
+
+                    // Only add row if it has at least one container
+                    boolean hasContainers = false;
+                    for (int i = 1; i <= 8; i++) { // Increased from 5 to 8
+                        if (rowData.getEntry(i) != null && rowData.getEntry(i).getContainerNumber() != null) {
+                            hasContainers = true;
+                            break;
+                        }
+                    }
+
+                    if (hasContainers) {
+                        rows.put(rowKey, rowData);
+                    }
                 }
             }
+
             result.setRows(rows);
             logger.info("Successfully parsed {} rows from Gemini response", rows.size());
             return result;
         } catch (JsonProcessingException ex) {
+            logger.error("Failed to parse Gemini JSON response: {}", ex.getMessage());
+            logger.debug("Raw JSON response: {}", jsonResponse);
+
             // Attempt to salvage truncated/incomplete JSON by extracting valid prefix
             String repaired = tryRepairJsonArrayItems(jsonResponse);
             if (repaired != null) {
-                Map<String, Object> jsonMap = objectMapper.readValue(repaired, Map.class);
                 ContainerExtractionResultDTO result = new ContainerExtractionResultDTO();
                 result.setRows(new HashMap<>()); // no rows for image repair path
                 logger.warn("Repaired Gemini JSON for image flow; items ignored. Length={}.", repaired.length());
@@ -508,12 +584,30 @@ public class GeminiService {
         double totalConfidence = 0.0;
         int containerCount = 0;
 
+        // Convert grid structure if available
+        if (extractionResult.getGridStructure() != null) {
+            Map<String, Object> gridStructure = extractionResult.getGridStructure();
+            OCRResultDTO.GridStructureDTO gridDTO = new OCRResultDTO.GridStructureDTO();
+
+            if (gridStructure.get("rows") != null) {
+                gridDTO.setRows(Integer.valueOf(gridStructure.get("rows").toString()));
+            }
+            if (gridStructure.get("columns") != null) {
+                gridDTO.setColumns(Integer.valueOf(gridStructure.get("columns").toString()));
+            }
+            if (gridStructure.get("total_products") != null) {
+                gridDTO.setTotalProducts(Integer.valueOf(gridStructure.get("total_products").toString()));
+            }
+
+            result.setGridStructure(gridDTO);
+        }
+
         if (extractionResult.getRows() != null) {
             for (Map.Entry<String, ContainerExtractionResultDTO.RowData> rowEntry : extractionResult.getRows().entrySet()) {
                 String rowName = rowEntry.getKey();
                 ContainerExtractionResultDTO.RowData rowData = rowEntry.getValue();
                 extractedText.append("Row ").append(rowName).append(":\n");
-                for (int i = 1; i <= 5; i++) {
+                for (int i = 1; i <= 8; i++) { // Updated from 5 to 8
                     ContainerExtractionResultDTO.ContainerEntry entry = rowData.getEntry(i);
                     if (entry != null && entry.getContainerNumber() != null && !entry.getContainerNumber().isEmpty()) {
                         String containerNumber = entry.getContainerNumber();

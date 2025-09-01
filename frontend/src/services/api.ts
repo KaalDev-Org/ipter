@@ -544,11 +544,110 @@ export interface VerificationStatusResponse {
   imageData: ImageDataResponse[];
 }
 
+export interface ExtractedDataItem {
+  containerNumber: string;
+  confidence: number;
+  matched: boolean;
+}
+
+export interface ProjectViewDataResponse {
+  projectId: string;
+  projectName: string;
+  createdAt: string;
+  masterData: string[];
+  images: ImageDataSummary[];
+  summary: ProjectSummary;
+}
+
+export interface ImageDataSummary {
+  imageId: string;
+  imageName: string;
+  imageUrl: string;
+  uploadedAt: string;
+  extractedContainers: string[];
+  containerConfidences: { [key: string]: number };
+}
+
+export interface ProjectSummary {
+  totalMasterSerialNos: number;
+  totalExtractedSerialNos: number;
+  matchedSerialNos: number;
+  unmatchedSerialNos: number;
+  duplicateSerialNos: number;
+}
+
+// Gemini Container Extraction Interfaces
+export interface ContainerNumber {
+  number: string;
+  confidence: number;
+  bounding_box: any;
+  validation_status: string;
+}
+
+export interface ProcessingMetadata {
+  engine: string;
+  timestamp: string;
+  processing_time: number;
+  engine_version: string;
+  preprocessing_applied: any;
+}
+
+export interface GridStructure {
+  rows: number;
+  columns: number;
+  total_products: number;
+}
+
+export interface GeminiExtractionResponse {
+  data: {
+    imageId: string;
+    projectId: string;
+    imageName: string;
+    uploadedAt: string;
+    success: boolean;
+    message: string;
+    extractedText: string;
+    containerNumbers: ContainerNumber[];
+    confidence: number;
+    grid_structure?: GridStructure;
+  };
+  message: string;
+}
+
+export interface SerialNumberUpdate {
+  row: number;
+  position: number;
+  serial_number: string;
+  is_user_modified: boolean;
+  confidence: string;
+}
+
+export interface SerialNumberUpdateRequest {
+  image_id: string;
+  project_id: string;
+  updated_serials: SerialNumberUpdate[];
+}
+
+export interface SerialNumberUpdateResponse {
+  image_id: string;
+  project_id: string;
+  updated_count: number;
+  updated_at: string;
+  message: string;
+  success: boolean;
+}
+
 // Project Management API
 export const projectAPI = {
   // Create project
   createProject: async (data: CreateProjectRequest): Promise<{ message: string; project: ProjectResponse }> => {
     const response = await api.post('/projects/create', data);
+    return response.data;
+  },
+
+  // Update an existing project
+  updateProject: async (projectId: string, data: CreateProjectRequest): Promise<{ message: string; project: ProjectResponse }> => {
+    const response = await api.put(`/projects/${projectId}`, data);
     return response.data;
   },
 
@@ -602,6 +701,20 @@ export const projectAPI = {
     return response.data;
   },
 
+  // Upload and process PDF in a single step (new combined API)
+  uploadAndProcessPdf: async (projectId: string, file: File, forceReprocess = false): Promise<{ message: string; result: ProcessPdfResponse }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(`/projects/${projectId}/upload-and-process-pdf`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      params: { forceReprocess }
+    });
+    return response.data;
+  },
+
   // Get master data for a project
   getMasterData: async (projectId: string): Promise<MasterDataResponse[]> => {
     // TODO: Replace with actual API call when backend is ready
@@ -638,6 +751,52 @@ export const projectAPI = {
         updatedAt: new Date().toISOString()
       }
     ];
+  },
+
+  // Extract containers using Gemini API
+  extractContainersGemini: async (projectId: string, imageFile: File): Promise<GeminiExtractionResponse> => {
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    formData.append('projectId', projectId);
+    formData.append('description', 'Container extraction from product image');
+
+    const response = await fetch(`${API_BASE_URL}/images/upload-and-extract`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${getValidToken()}`,
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  // Update serial numbers after user verification
+  updateSerialNumbers: async (request: SerialNumberUpdateRequest): Promise<SerialNumberUpdateResponse> => {
+    console.log('🔧 updateSerialNumbers called with request:', request);
+    console.log('🔄 Using axios instance like other working endpoints...');
+
+    try {
+      const response = await api.post('/images/update-serial-numbers', request);
+      console.log('✅ updateSerialNumbers success with axios:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ updateSerialNumbers failed with axios:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error status:', error.response?.status);
+      console.error('❌ Error headers:', error.response?.headers);
+      throw error;
+    }
+  },
+
+  // Get project view data (master data + extracted data from images)
+  getProjectViewData: async (projectId: string): Promise<{ message: string; data: ProjectViewDataResponse }> => {
+    const response = await api.get(`/projects/${projectId}/view-data`);
+    return response.data;
   },
 
   // Get verification status for a project

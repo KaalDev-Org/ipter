@@ -205,11 +205,12 @@ const ViewAuditTrail: React.FC = () => {
 
     console.log('ViewAuditTrail useEffect - Auth status:', {
       isAuthenticated,
-      isAdmin,
+      canViewAuditTrail: user?.canViewAuditTrail,
       user: user ? {
         username: user.username,
         role: user.role,
-        roles: user.roles
+        roles: user.roles,
+        canViewAuditTrail: user.canViewAuditTrail
       } : null,
       rawToken: rawToken,
       rawRefreshToken: rawRefreshToken,
@@ -229,22 +230,25 @@ const ViewAuditTrail: React.FC = () => {
       localStorage.removeItem('refreshToken');
     }
 
-    if (isAuthenticated && isAdmin) {
+    if (isAuthenticated && user?.canViewAuditTrail === true) {
       fetchPendingLogs();
       fetchReviewSessions();
-    } else if (isAuthenticated && !isAdmin) {
-      console.warn('User is authenticated but not admin:', user?.role);
+    } else if (isAuthenticated && user?.canViewAuditTrail !== true) {
+      console.warn('User is authenticated but cannot view audit trail:', {
+        role: user?.role,
+        canViewAuditTrail: user?.canViewAuditTrail
+      });
       setAccessDenied(true);
     }
-  }, [isAuthenticated, isAdmin, user]);
+  }, [isAuthenticated, user?.canViewAuditTrail, user]);
 
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated || user?.canViewAuditTrail !== true) {
     return (
       <div className="min-h-screen bg-z-ivory flex items-center justify-center">
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-red-400 mb-2">Access Denied</h3>
-          <p className="text-gray-600">Administrator privileges required</p>
+          <p className="text-gray-600">Audit trail viewing privileges required</p>
         </div>
       </div>
     );

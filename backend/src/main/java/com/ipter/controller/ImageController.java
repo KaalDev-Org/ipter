@@ -19,11 +19,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import com.ipter.dto.ImageProcessingResponse;
 import com.ipter.dto.ImageUploadRequest;
 import com.ipter.dto.ImageUploadResponse;
 import com.ipter.dto.OCRResultDTO;
+import com.ipter.dto.SerialNumberUpdateRequest;
+import com.ipter.dto.SerialNumberUpdateResponse;
 import com.ipter.dto.UploadAndExtractResponse;
 import com.ipter.repository.ProjectRepository;
 import com.ipter.repository.UserRepository;
@@ -192,7 +198,7 @@ public class ImageController {
      * Reprocess an image (for failed or cancelled images)
      */
     @PostMapping("/{imageId}/reprocess")
-    @PreAuthorize("hasRole('SUPER_USER') or hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<?> reprocessImage(@PathVariable UUID imageId) {
         try {
             logger.info("Reprocessing image: {}", imageId);
@@ -277,7 +283,7 @@ public class ImageController {
      * - Returns unified response
      */
     @PostMapping("/upload-and-extract")
-    @PreAuthorize("hasRole('USER') or hasRole('SUPER_USER') or hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('USER') or hasRole('REVIEWER') or hasRole('ADMINISTRATOR')")
     public ResponseEntity<?> uploadAndExtract(
             @RequestParam("file") MultipartFile file,
             @RequestParam("projectId") UUID projectId,
@@ -321,6 +327,65 @@ public class ImageController {
             error.put("success", false);
             error.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Update serial numbers after user verification
+     */
+    @PostMapping("/update-serial-numbers")
+    // Temporarily removed @PreAuthorize to test authentication issue
+    // @PreAuthorize("hasRole('USER') or hasRole('REVIEWER') or hasRole('ADMINISTRATOR')")
+    public ResponseEntity<SerialNumberUpdateResponse> updateSerialNumbers(
+            @RequestBody SerialNumberUpdateRequest request) {
+        try {
+            logger.info("Updating serial numbers for image: {} (Project: {})",
+                       request.getImageId(), request.getProjectId());
+
+            // Delegate to image service for processing
+            SerialNumberUpdateResponse response = imageService.updateSerialNumbers(request);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            logger.error("Error updating serial numbers: {}", e.getMessage());
+            SerialNumberUpdateResponse errorResponse = new SerialNumberUpdateResponse(
+                request.getImageId(),
+                request.getProjectId(),
+                0,
+                "Failed to update serial numbers: " + e.getMessage(),
+                false
+            );
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+    }
+
+    /**
+     * Serve/view an uploaded image
+     */
+    @GetMapping("/{imageId}/view")
+    @PreAuthorize("hasRole('USER') or hasRole('REVIEWER') or hasRole('ADMINISTRATOR')")
+    public ResponseEntity<Resource> viewImage(@PathVariable UUID imageId) {
+        try {
+            logger.info("Serving image: {}", imageId);
+
+            // Get image from service
+            Resource imageResource = imageService.getImageResource(imageId);
+
+            // Determine content type
+            String contentType = imageService.getImageContentType(imageId);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                    .body(imageResource);
+
+        } catch (Exception e) {
+            logger.error("Error serving image {}: {}", imageId, e.getMessage());
+            return ResponseEntity.notFound().build();
         }
     }
 

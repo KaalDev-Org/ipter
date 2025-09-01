@@ -19,10 +19,33 @@ const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState(() => {
-    const userRole = user?.roles?.[0];
-    if (userRole === 'USER') return 'upload-image';
-    if (userRole === 'REVIEWER') return 'project-data';
-    return 'user-management'; // ADMINISTRATOR
+    const userRole = user?.roles?.[0] || user?.role;
+
+    // For USER role, default to upload-image (their primary function)
+    if (userRole === 'USER') {
+      return 'upload-image';
+    }
+
+    // For REVIEWER role, default to audit trail if they have permission
+    if (userRole === 'REVIEWER') {
+      if (user?.canViewAuditTrail === true) {
+        return 'view-audit-trail';
+      }
+      return 'project-data'; // Fallback
+    }
+
+    // For ADMINISTRATOR role, default to user-management
+    if (userRole === 'ADMINISTRATOR') {
+      return 'user-management';
+    }
+
+    // Fallback based on permissions
+    if (user?.canViewAuditTrail === true) return 'view-audit-trail';
+    if (user?.canCreateProjects === true) return 'project-management';
+    if (user?.canViewReports === true) return 'project-data';
+
+    // If user has no specific permissions, default to upload image
+    return 'upload-image';
   });
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
 
@@ -45,10 +68,18 @@ const Navbar: React.FC = () => {
     return 'U';
   };
 
-  // Get navigation items based on user role and permissions
+  // Get navigation items based on user permissions from API response
   const getNavigationItems = () => {
     const userRole = user?.roles?.[0] || user?.role;
     const navigationItems = [];
+
+    console.log('Navbar: Building navigation for user:', {
+      userRole,
+      canViewAuditTrail: user?.canViewAuditTrail,
+      canCreateProjects: user?.canCreateProjects,
+      canViewReports: user?.canViewReports,
+      fullUser: user
+    });
 
     // Admin gets user management first
     if (userRole === 'ADMINISTRATOR') {
@@ -72,7 +103,7 @@ const Navbar: React.FC = () => {
     }
 
     // Users with canCreateProjects permission get project management
-    if (user?.canCreateProjects || userRole === 'ADMINISTRATOR') {
+    if (user?.canCreateProjects === true) {
       navigationItems.push({
         id: 'project-management',
         label: 'Project Management',
@@ -81,20 +112,21 @@ const Navbar: React.FC = () => {
       });
     }
 
-    // All authenticated users get project data (for viewing projects)
-    navigationItems.push({
-      id: 'project-data',
-      label: 'Project Data',
-      icon: Database,
-      path: '/project-data'
-    });
+    // Users with canViewReports permission get project data (for viewing projects)
+    if (user?.canViewReports === true) {
+      navigationItems.push({
+        id: 'project-data',
+        label: 'Project Data',
+        icon: Database,
+        path: '/project-data'
+      });
+    }
 
-    // ONLY administrators can access audit trail (backend restriction)
-    // Backend has @PreAuthorize("hasRole('ADMINISTRATOR')") on audit controller
-    if (userRole === 'ADMINISTRATOR') {
+    // Users with canViewAuditTrail permission get audit trail
+    if (user?.canViewAuditTrail === true) {
       navigationItems.push({
         id: 'view-audit-trail',
-        label: 'View Audit Trail',
+        label: 'Audit Trail',
         icon: FileSearch,
         path: '/view-audit-trail'
       });

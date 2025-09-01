@@ -131,9 +131,13 @@ public class DataViewService {
                         (existing, replacement) -> Math.max(existing, replacement) // Keep highest confidence
                     ));
                 
+                // Generate image URL (assuming images are served from /api/images/{imageId})
+                String imageUrl = "/api/images/" + image.getId() + "/view";
+
                 return new ProjectDataViewDTO.ImageDataSummaryDTO(
                     image.getId(),
                     image.getOriginalFilename(),
+                    imageUrl,
                     image.getUploadedAt(),
                     extractedContainers,
                     containerConfidences

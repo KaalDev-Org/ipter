@@ -229,6 +229,15 @@ public class AuditService {
     }
 
     /**
+     * Log project update
+     */
+    public void logProjectUpdate(Project project, User performedBy) {
+        logEvent("PROJECT_UPDATED", "Project", project.getId(),
+                "Project '" + project.getName() + "' updated",
+                performedBy);
+    }
+
+    /**
      * Log project status change
      */
     public void logProjectStatusChange(Project project, ProjectStatus oldStatus, ProjectStatus newStatus, User performedBy) {
@@ -285,9 +294,9 @@ public class AuditService {
     // ===== AUDIT LOG REVIEW METHODS =====
 
     /**
-     * Review an audit log (Admin only)
+     * Review an audit log (Admin or users with audit trail permission)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional
     public AuditLogReviewResponse reviewAuditLog(AuditLogReviewRequest request, User reviewer) {
         Optional<AuditLog> auditLogOpt = auditLogRepository.findById(request.getAuditLogId());
@@ -333,9 +342,9 @@ public class AuditService {
     }
 
     /**
-     * Get pending review logs (Admin only)
+     * Get pending review logs (Admin or users with audit trail permission)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
     public List<AuditLogReviewResponse> getPendingReviewLogs() {
         List<AuditLog> auditLogs = auditLogRepository.findPendingReviewLogs();
@@ -381,9 +390,9 @@ public class AuditService {
     }
 
     /**
-     * Bulk review all pending audit logs (Admin only)
+     * Bulk review all pending audit logs (Admin or users with audit trail permission)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional
     public BulkReviewResponse bulkReviewPendingLogs(BulkAuditLogReviewRequest request, User reviewer) {
         // Get all pending review logs
@@ -432,9 +441,9 @@ public class AuditService {
     }
 
     /**
-     * Get all review sessions (Admin only)
+     * Get all review sessions (Admin or users with audit trail permission)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
     public List<ReviewSessionResponse> getAllReviewSessions() {
         List<ReviewSession> sessions = reviewSessionRepository.findAllOrderByReviewedAtDesc();
@@ -444,9 +453,9 @@ public class AuditService {
     }
 
     /**
-     * Get audit logs by review session (Admin only)
+     * Get audit logs by review session (Admin or users with audit trail permission)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
     public List<AuditLogReviewResponse> getAuditLogsByReviewSession(UUID reviewSessionId) {
         Optional<ReviewSession> reviewSessionOpt = reviewSessionRepository.findById(reviewSessionId);

@@ -29,9 +29,12 @@ public class OCRResultDTO {
     
     @JsonProperty("processing_metadata")
     private ProcessingMetadataDTO processingMetadata;
-    
+
+    @JsonProperty("grid_structure")
+    private GridStructureDTO gridStructure;
+
     private Boolean success;
-    
+
     @JsonProperty("error_message")
     private String errorMessage;
     
@@ -90,11 +93,19 @@ public class OCRResultDTO {
     public ProcessingMetadataDTO getProcessingMetadata() {
         return processingMetadata;
     }
-    
+
     public void setProcessingMetadata(ProcessingMetadataDTO processingMetadata) {
         this.processingMetadata = processingMetadata;
     }
-    
+
+    public GridStructureDTO getGridStructure() {
+        return gridStructure;
+    }
+
+    public void setGridStructure(GridStructureDTO gridStructure) {
+        this.gridStructure = gridStructure;
+    }
+
     public Boolean getSuccess() {
         return success;
     }
@@ -343,6 +354,51 @@ public class OCRResultDTO {
         
         public void setTimestamp(LocalDateTime timestamp) {
             this.timestamp = timestamp;
+        }
+    }
+
+    /**
+     * Grid Structure DTO
+     */
+    public static class GridStructureDTO {
+        private Integer rows;
+        private Integer columns;
+
+        @JsonProperty("total_products")
+        private Integer totalProducts;
+
+        // Constructors
+        public GridStructureDTO() {}
+
+        public GridStructureDTO(Integer rows, Integer columns, Integer totalProducts) {
+            this.rows = rows;
+            this.columns = columns;
+            this.totalProducts = totalProducts;
+        }
+
+        // Getters and Setters
+        public Integer getRows() {
+            return rows;
+        }
+
+        public void setRows(Integer rows) {
+            this.rows = rows;
+        }
+
+        public Integer getColumns() {
+            return columns;
+        }
+
+        public void setColumns(Integer columns) {
+            this.columns = columns;
+        }
+
+        public Integer getTotalProducts() {
+            return totalProducts;
+        }
+
+        public void setTotalProducts(Integer totalProducts) {
+            this.totalProducts = totalProducts;
         }
     }
 }

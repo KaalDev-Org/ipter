@@ -9,23 +9,32 @@ import java.util.Map;
  * Matches the required JSON format with rows and columns
  */
 public class ContainerExtractionResultDTO {
-    
+
     private Map<String, RowData> rows;
-    
+    private Map<String, Object> gridStructure;
+
     // Constructors
     public ContainerExtractionResultDTO() {}
-    
+
     public ContainerExtractionResultDTO(Map<String, RowData> rows) {
         this.rows = rows;
     }
-    
+
     // Getters and Setters
     public Map<String, RowData> getRows() {
         return rows;
     }
-    
+
     public void setRows(Map<String, RowData> rows) {
         this.rows = rows;
+    }
+
+    public Map<String, Object> getGridStructure() {
+        return gridStructure;
+    }
+
+    public void setGridStructure(Map<String, Object> gridStructure) {
+        this.gridStructure = gridStructure;
     }
     
     // Helper methods to access specific rows
@@ -74,19 +83,28 @@ public class ContainerExtractionResultDTO {
     public static class RowData {
         @JsonProperty("1")
         private ContainerEntry entry1;
-        
+
         @JsonProperty("2")
         private ContainerEntry entry2;
-        
+
         @JsonProperty("3")
         private ContainerEntry entry3;
-        
+
         @JsonProperty("4")
         private ContainerEntry entry4;
-        
+
         @JsonProperty("5")
         private ContainerEntry entry5;
-        
+
+        @JsonProperty("6")
+        private ContainerEntry entry6;
+
+        @JsonProperty("7")
+        private ContainerEntry entry7;
+
+        @JsonProperty("8")
+        private ContainerEntry entry8;
+
         // Constructors
         public RowData() {}
         
@@ -126,11 +144,35 @@ public class ContainerExtractionResultDTO {
         public ContainerEntry getEntry5() {
             return entry5;
         }
-        
+
         public void setEntry5(ContainerEntry entry5) {
             this.entry5 = entry5;
         }
-        
+
+        public ContainerEntry getEntry6() {
+            return entry6;
+        }
+
+        public void setEntry6(ContainerEntry entry6) {
+            this.entry6 = entry6;
+        }
+
+        public ContainerEntry getEntry7() {
+            return entry7;
+        }
+
+        public void setEntry7(ContainerEntry entry7) {
+            this.entry7 = entry7;
+        }
+
+        public ContainerEntry getEntry8() {
+            return entry8;
+        }
+
+        public void setEntry8(ContainerEntry entry8) {
+            this.entry8 = entry8;
+        }
+
         // Helper method to set entry by position
         public void setEntry(int position, String containerNumber, String confidence) {
             ContainerEntry entry = new ContainerEntry(containerNumber, confidence);
@@ -140,10 +182,13 @@ public class ContainerExtractionResultDTO {
                 case 3: setEntry3(entry); break;
                 case 4: setEntry4(entry); break;
                 case 5: setEntry5(entry); break;
-                default: throw new IllegalArgumentException("Position must be between 1 and 5");
+                case 6: setEntry6(entry); break;
+                case 7: setEntry7(entry); break;
+                case 8: setEntry8(entry); break;
+                default: throw new IllegalArgumentException("Position must be between 1 and 8");
             }
         }
-        
+
         // Helper method to get entry by position
         public ContainerEntry getEntry(int position) {
             switch (position) {
@@ -152,7 +197,10 @@ public class ContainerExtractionResultDTO {
                 case 3: return getEntry3();
                 case 4: return getEntry4();
                 case 5: return getEntry5();
-                default: throw new IllegalArgumentException("Position must be between 1 and 5");
+                case 6: return getEntry6();
+                case 7: return getEntry7();
+                case 8: return getEntry8();
+                default: throw new IllegalArgumentException("Position must be between 1 and 8");
             }
         }
     }

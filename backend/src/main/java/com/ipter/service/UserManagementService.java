@@ -309,4 +309,30 @@ public class UserManagementService {
         User user = userOpt.get();
         return user.isActive() && user.isCanCreateProjects();
     }
+
+    /**
+     * Check if user can view audit trail
+     */
+    public boolean canViewAuditTrail(String username) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return false;
+        }
+
+        User user = userOpt.get();
+        return user.isActive() && user.isCanViewAuditTrail();
+    }
+
+    /**
+     * Check if user can view reports
+     */
+    public boolean canViewReports(String username) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return false;
+        }
+
+        User user = userOpt.get();
+        return user.isActive() && user.isCanViewReports();
+    }
 }

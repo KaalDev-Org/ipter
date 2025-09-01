@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Scanning animation for image processing */
+@keyframes scanning {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
+.scanning-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+  animation: scanning 3s ease-in-out infinite;
+  box-shadow: 0 0 10px #3b82f6;
+}
+
 @layer base {
   :root {
     --background: 174 35% 92%; /* Z Ivory #F5FAF2 */

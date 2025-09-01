@@ -55,16 +55,18 @@ public class ProjectDataViewDTO {
     public static class ImageDataSummaryDTO {
         private UUID imageId;
         private String imageName;
+        private String imageUrl;
         private LocalDateTime uploadedAt;
         private List<String> extractedContainers;
         private Map<String, Double> containerConfidences; // container -> confidence
-        
+
         public ImageDataSummaryDTO() {}
-        
-        public ImageDataSummaryDTO(UUID imageId, String imageName, LocalDateTime uploadedAt,
+
+        public ImageDataSummaryDTO(UUID imageId, String imageName, String imageUrl, LocalDateTime uploadedAt,
                                   List<String> extractedContainers, Map<String, Double> containerConfidences) {
             this.imageId = imageId;
             this.imageName = imageName;
+            this.imageUrl = imageUrl;
             this.uploadedAt = uploadedAt;
             this.extractedContainers = extractedContainers;
             this.containerConfidences = containerConfidences;
@@ -75,7 +77,10 @@ public class ProjectDataViewDTO {
         
         public String getImageName() { return imageName; }
         public void setImageName(String imageName) { this.imageName = imageName; }
-        
+
+        public String getImageUrl() { return imageUrl; }
+        public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
         public LocalDateTime getUploadedAt() { return uploadedAt; }
         public void setUploadedAt(LocalDateTime uploadedAt) { this.uploadedAt = uploadedAt; }
         

@@ -62,7 +62,7 @@ public class ProjectService {
     /**
      * Create a new project
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER') or @userManagementService.canCreateProjects(authentication.name)")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ProjectResponse createProject(CreateProjectRequest request) throws Exception {
         User currentUser = getCurrentUser();
         
@@ -136,7 +136,7 @@ public class ProjectService {
     /**
      * Update project status
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ProjectResponse updateProjectStatus(UUID projectId, ProjectStatus status) throws Exception {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
@@ -155,11 +155,56 @@ public class ProjectService {
         
         return new ProjectResponse(savedProject);
     }
-    
+
+    /**
+     * Update an existing project
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
+    public ProjectResponse updateProject(UUID projectId, CreateProjectRequest request) throws Exception {
+        User currentUser = getCurrentUser();
+
+        // Find the existing project
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
+
+        // Check if another project with the same name exists (excluding current project)
+        Optional<Project> existingProject = projectRepository.findByNameContainingIgnoreCase(request.getName())
+                .stream()
+                .filter(p -> !p.getId().equals(projectId))
+                .findFirst();
+        if (existingProject.isPresent()) {
+            throw new Exception("Project with name '" + request.getName() + "' already exists");
+        }
+
+        // Update project fields
+        project.setName(request.getName());
+        project.setDescription(request.getDescription());
+        project.setShipper(request.getShipper());
+        project.setInvoice(request.getInvoice());
+        project.setCompound(request.getCompound());
+        project.setQuantity(request.getQuantity());
+        project.setExpDate(request.getExpDate());
+        project.setShipmentId(request.getShipmentId());
+        project.setPackageLot(request.getPackageLot());
+        project.setProtocol(request.getProtocol());
+        project.setSite(request.getSite());
+        project.setInvoiceDate(request.getInvoiceDate());
+        project.setRemarks(request.getRemarks());
+        project.setUpdatedAt(LocalDateTime.now());
+
+        // Save the updated project
+        Project savedProject = projectRepository.save(project);
+
+        // Log audit event
+        auditService.logProjectUpdate(savedProject, getCurrentUser());
+
+        return new ProjectResponse(savedProject);
+    }
+
     /**
      * Upload and immediately process a PDF for master data extraction
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ProcessPdfResponse uploadAndProcessPdf(UUID projectId, MultipartFile file, boolean forceReprocess) throws Exception {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
@@ -202,7 +247,7 @@ public class ProjectService {
     /**
      * Process PDF file to extract master data using Gemini API
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ProcessPdfResponse processPdfFile(ProcessPdfRequest request) throws Exception {
         long startTime = System.currentTimeMillis();
 

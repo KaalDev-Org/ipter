@@ -56,7 +56,7 @@ public class ProjectController {
      * Create a new project
      */
     @PostMapping("/create")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER') or @userManagementService.canCreateProjects(authentication.name)")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ResponseEntity<?> createProject(@Valid @RequestBody CreateProjectRequest request) {
         try {
             ProjectResponse project = projectService.createProject(request);
@@ -78,6 +78,7 @@ public class ProjectController {
      * Get all projects with pagination
      */
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getAllProjects(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
@@ -112,6 +113,7 @@ public class ProjectController {
      * Get all active projects
      */
     @GetMapping("/active")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getActiveProjects() {
         try {
             List<ProjectResponse> projects = projectService.getActiveProjects();
@@ -133,6 +135,7 @@ public class ProjectController {
      * Get project by ID
      */
     @GetMapping("/{projectId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<?> getProjectById(@PathVariable UUID projectId) {
         try {
             ProjectResponse project = projectService.getProjectById(projectId);
@@ -146,20 +149,44 @@ public class ProjectController {
     }
     
     /**
+     * Update project details
+     */
+    @PutMapping("/{projectId}")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
+    public ResponseEntity<?> updateProject(
+            @PathVariable UUID projectId,
+            @Valid @RequestBody CreateProjectRequest request) {
+        try {
+            ProjectResponse project = projectService.updateProject(projectId, request);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Project updated successfully");
+            response.put("project", project);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Error updating project {}: {}", projectId, e.getMessage());
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
      * Update project status
      */
     @PutMapping("/{projectId}/status")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR')")
     public ResponseEntity<?> updateProjectStatus(
             @PathVariable UUID projectId,
             @RequestParam ProjectStatus status) {
         try {
             ProjectResponse project = projectService.updateProjectStatus(projectId, status);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Project status updated successfully");
             response.put("project", project);
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Error updating project status {}: {}", projectId, e.getMessage());
@@ -173,7 +200,7 @@ public class ProjectController {
      * Upload and process PDF in a single step (Option A)
      */
     @PostMapping("/{projectId}/upload-and-process-pdf")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ResponseEntity<?> uploadAndProcessPdf(
             @PathVariable UUID projectId,
             @RequestParam("file") MultipartFile file,
@@ -198,7 +225,7 @@ public class ProjectController {
      * View image data - compare single image extracted data with master data
      */
     @GetMapping("/images/{imageId}/view-data")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewReports(authentication.name)")
     public ResponseEntity<?> viewImageData(@PathVariable UUID imageId) {
         try {
             ImageDataViewDTO imageDataView = dataViewService.getImageDataView(imageId);
@@ -222,7 +249,7 @@ public class ProjectController {
      * View project data - compare all images in project with master data
      */
     @GetMapping("/{projectId}/view-data")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('SUPER_USER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewReports(authentication.name)")
     public ResponseEntity<?> viewProjectData(@PathVariable UUID projectId) {
         try {
             ProjectDataViewDTO projectDataView = dataViewService.getProjectDataView(projectId);

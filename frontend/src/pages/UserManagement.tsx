@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -50,6 +51,7 @@ type UpdateUserFormData = z.infer<typeof updateUserSchema>;
 const UserManagement: React.FC = () => {
   const { isAdmin, user } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('create');
   const [isLoading, setIsLoading] = useState(false);
@@ -76,6 +78,38 @@ const UserManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
+
+  // Redirect non-admin users to their appropriate page
+  useEffect(() => {
+    if (user && !isAdmin) {
+      console.log('UserManagement: Non-admin user detected, redirecting...', { user, isAdmin });
+      const userRole = user.role;
+
+      if (userRole === 'USER') {
+        // For USER role, always redirect to Upload Image (their primary function)
+        navigate('/upload-image', { replace: true });
+      } else if (userRole === 'REVIEWER') {
+        if (user.canViewAuditTrail === true) {
+          navigate('/view-audit-trail', { replace: true });
+        } else if (user.canViewReports === true) {
+          navigate('/project-data', { replace: true });
+        } else {
+          navigate('/upload-image', { replace: true });
+        }
+      } else {
+        // For other roles, check permissions
+        if (user.canViewAuditTrail === true) {
+          navigate('/view-audit-trail', { replace: true });
+        } else if (user.canCreateProjects === true) {
+          navigate('/project-management', { replace: true });
+        } else if (user.canViewReports === true) {
+          navigate('/project-data', { replace: true });
+        } else {
+          navigate('/upload-image', { replace: true });
+        }
+      }
+    }
+  }, [user, isAdmin, navigate]);
 
   // Load data on component mount
   useEffect(() => {
@@ -297,9 +331,7 @@ const UserManagement: React.FC = () => {
       });
 
       setSuccess(`Password reset successfully for ${selectedUser.username}`);
-      setShowResetPasswordDialog(false);
-      setNewPassword('');
-      setSelectedUser(null);
+      closeResetPasswordDialog();
 
     } catch (error: any) {
       console.error('Failed to reset password:', error);
@@ -361,6 +393,12 @@ const UserManagement: React.FC = () => {
     setSelectedUser(user);
     setNewPassword('');
     setShowResetPasswordDialog(true);
+  };
+
+  const closeResetPasswordDialog = () => {
+    setShowResetPasswordDialog(false);
+    setNewPassword('');
+    setSelectedUser(null);
   };
 
   const openEditUserDialog = (user: UserResponse) => {
@@ -1021,8 +1059,8 @@ const UserManagement: React.FC = () => {
 
                               {/* Status */}
                               <td className="px-4 py-4 align-top">
-                                <div className="space-y-1">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium w-fit ${
+                                <div className="flex flex-wrap gap-1">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                                     tableUser.isActive
                                       ? 'bg-green-100 text-green-800'
                                       : 'bg-red-100 text-red-800'
@@ -1033,10 +1071,10 @@ const UserManagement: React.FC = () => {
                                     {tableUser.isActive ? 'Active' : 'Inactive'}
                                   </span>
                                   {tableUser.mustChangePassword && (
-                                    <div className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-200 w-fit">
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-800 border border-amber-200">
                                       <Key className="w-3 h-3 mr-1" />
-                                      <span className="truncate">Reset Req.</span>
-                                    </div>
+                                      <span>Reset Req.</span>
+                                    </span>
                                   )}
                                 </div>
                               </td>
@@ -1109,7 +1147,9 @@ const UserManagement: React.FC = () => {
       </div>
 
       {/* Reset Password Dialog */}
-      <Dialog open={showResetPasswordDialog} onOpenChange={setShowResetPasswordDialog}>
+      <Dialog open={showResetPasswordDialog} onOpenChange={(open) => {
+        if (!open) closeResetPasswordDialog();
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Reset Password</DialogTitle>
@@ -1136,7 +1176,7 @@ const UserManagement: React.FC = () => {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowResetPasswordDialog(false)}
+              onClick={closeResetPasswordDialog}
               disabled={resetPasswordLoading}
             >
               Cancel
