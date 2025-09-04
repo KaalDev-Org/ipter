@@ -10,8 +10,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
-import java.time.Duration;
-
 /**
  * Configuration for AI Service integration
  * Configures HTTP clients for communication with Python AI services

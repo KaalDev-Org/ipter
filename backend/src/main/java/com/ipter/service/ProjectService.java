@@ -41,20 +41,19 @@ import com.ipter.repository.UserRepository;
 @Service
 @Transactional
 public class ProjectService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ProjectService.class);
-    
+
     @Autowired
     private ProjectRepository projectRepository;
-    
+
     @Autowired
     private MasterDataRepository masterDataRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
-    @Autowired
-    private AuditService auditService;
+
+
 
     @Autowired
     private GeminiService geminiService;
@@ -65,14 +64,14 @@ public class ProjectService {
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ProjectResponse createProject(CreateProjectRequest request) throws Exception {
         User currentUser = getCurrentUser();
-        
+
         // Check if project name already exists
         Optional<Project> existingProject = projectRepository.findByNameContainingIgnoreCase(request.getName())
                 .stream().findFirst();
         if (existingProject.isPresent()) {
             throw new Exception("Project with name '" + request.getName() + "' already exists");
         }
-        
+
         // Create new project
         Project project = new Project();
         project.setName(request.getName());
@@ -92,17 +91,16 @@ public class ProjectService {
         project.setStatus(ProjectStatus.ACTIVE);
         project.setCreatedAt(LocalDateTime.now());
         project.setUpdatedAt(LocalDateTime.now());
-        
+
         Project savedProject = projectRepository.save(project);
-        
-        // Log audit event
-        auditService.logProjectCreation(savedProject, currentUser);
-        
+
+        // Audit logging will be handled by frontend
+
         logger.info("Project created successfully: {} by user: {}", savedProject.getName(), currentUser.getUsername());
-        
+
         return new ProjectResponse(savedProject);
     }
-    
+
     /**
      * Get all projects with pagination
      */
@@ -111,7 +109,7 @@ public class ProjectService {
         Page<Project> projects = projectRepository.findAll(pageable);
         return projects.map(ProjectResponse::new);
     }
-    
+
     /**
      * Get all active projects
      */
@@ -122,7 +120,7 @@ public class ProjectService {
                 .map(ProjectResponse::new)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get project by ID
      */
@@ -132,7 +130,7 @@ public class ProjectService {
                 .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
         return new ProjectResponse(project);
     }
-    
+
     /**
      * Update project status
      */
@@ -140,19 +138,18 @@ public class ProjectService {
     public ProjectResponse updateProjectStatus(UUID projectId, ProjectStatus status) throws Exception {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
-        
+
         ProjectStatus oldStatus = project.getStatus();
         project.setStatus(status);
         project.setUpdatedAt(LocalDateTime.now());
-        
+
         Project savedProject = projectRepository.save(project);
-        
-        // Log audit event
-        auditService.logProjectStatusChange(savedProject, oldStatus, status, getCurrentUser());
-        
-        logger.info("Project status updated: {} from {} to {} by user: {}", 
+
+        // Audit logging will be handled by frontend
+
+        logger.info("Project status updated: {} from {} to {} by user: {}",
                    savedProject.getName(), oldStatus, status, getCurrentUser().getUsername());
-        
+
         return new ProjectResponse(savedProject);
     }
 
@@ -195,8 +192,7 @@ public class ProjectService {
         // Save the updated project
         Project savedProject = projectRepository.save(project);
 
-        // Log audit event
-        auditService.logProjectUpdate(savedProject, getCurrentUser());
+        // Audit logging will be handled by frontend
 
         return new ProjectResponse(savedProject);
     }
@@ -234,8 +230,7 @@ public class ProjectService {
         project.setUpdatedAt(LocalDateTime.now());
         projectRepository.save(project);
 
-        // Log audit event
-        auditService.logPdfUpload(project, fileName, getCurrentUser());
+        // Audit logging will be handled by frontend
 
         // Immediate processing
         ProcessPdfRequest request = new ProcessPdfRequest(projectId);
@@ -243,7 +238,7 @@ public class ProjectService {
         request.setPdfFilePath(filePath.toString());
         return processPdfFile(request);
     }
-    
+
     /**
      * Process PDF file to extract master data using Gemini API
      */
@@ -321,8 +316,7 @@ public class ProjectService {
         project.setUpdatedAt(LocalDateTime.now());
         projectRepository.save(project);
 
-        // Audit
-        auditService.logMasterDataProcessing(project, masterDataList.size(), getCurrentUser());
+        // Audit logging will be handled by frontend
 
         long processingTime = System.currentTimeMillis() - startTime;
 
@@ -339,7 +333,7 @@ public class ProjectService {
 
         return response;
     }
-    
+
     /**
      * Generate dummy container numbers for testing
      */
@@ -350,7 +344,7 @@ public class ProjectService {
             "999-99-9989", "999-99-9988", "999-99-9987", "999-99-9986", "999-99-9985"
         );
     }
-    
+
     /**
      * Get current authenticated user
      */

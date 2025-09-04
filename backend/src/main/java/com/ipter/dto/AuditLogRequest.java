@@ -1,37 +1,17 @@
-package com.ipter.model;
+package com.ipter.dto;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+import java.util.UUID;
+
 /**
- * Simplified audit log entity for tracking user activities
- * Called from frontend for every action
+ * DTO for creating audit log entries from frontend
  */
-@Entity
-@Table(name = "audit_logs")
-public class AuditLog {
-    
-    @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private UUID id;
+public class AuditLogRequest {
     
     @NotBlank(message = "Action is required")
     @Size(max = 200, message = "Action cannot exceed 200 characters")
-    @Column(nullable = false)
     private String action;
     
     @Size(max = 100, message = "Entity type cannot exceed 100 characters")
@@ -42,41 +22,23 @@ public class AuditLog {
     @Size(max = 2000, message = "Details cannot exceed 2000 characters")
     private String details;
     
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "performed_by")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
-    private User performedBy;
-    
-    @Column(nullable = false)
-    private LocalDateTime timestamp = LocalDateTime.now();
-    
     @Size(max = 45, message = "IP address cannot exceed 45 characters")
     private String ipAddress;
     
     @Size(max = 500, message = "User agent cannot exceed 500 characters")
     private String userAgent;
-
-    // Constructors
-    public AuditLog() {}
     
-    public AuditLog(String action, String entityType, UUID entityId, String details, User performedBy) {
+    // Constructors
+    public AuditLogRequest() {}
+    
+    public AuditLogRequest(String action, String entityType, UUID entityId, String details) {
         this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
         this.details = details;
-        this.performedBy = performedBy;
-        this.timestamp = LocalDateTime.now();
     }
     
     // Getters and Setters
-    public UUID getId() {
-        return id;
-    }
-    
-    public void setId(UUID id) {
-        this.id = id;
-    }
-    
     public String getAction() {
         return action;
     }
@@ -109,22 +71,6 @@ public class AuditLog {
         this.details = details;
     }
     
-    public User getPerformedBy() {
-        return performedBy;
-    }
-    
-    public void setPerformedBy(User performedBy) {
-        this.performedBy = performedBy;
-    }
-    
-    public LocalDateTime getTimestamp() {
-        return timestamp;
-    }
-    
-    public void setTimestamp(LocalDateTime timestamp) {
-        this.timestamp = timestamp;
-    }
-    
     public String getIpAddress() {
         return ipAddress;
     }
@@ -143,14 +89,11 @@ public class AuditLog {
     
     @Override
     public String toString() {
-        return "AuditLog{" +
-                "id=" + id +
-                ", action='" + action + '\'' +
+        return "AuditLogRequest{" +
+                "action='" + action + '\'' +
                 ", entityType='" + entityType + '\'' +
                 ", entityId=" + entityId +
                 ", details='" + details + '\'' +
-                ", performedBy=" + (performedBy != null ? performedBy.getUsername() : null) +
-                ", timestamp=" + timestamp +
                 ", ipAddress='" + ipAddress + '\'' +
                 ", userAgent='" + userAgent + '\'' +
                 '}';

@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  Eye, 
+import {
+  BarChart3,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Eye,
   XCircle,
   Download,
   RefreshCw,
@@ -224,8 +224,8 @@ const AuditStatsDashboard: React.FC<AuditStatsDashboardProps> = ({ onRefresh }) 
                   Average Review Time
                 </div>
                 <div className="text-2xl font-bold text-gray-900 font-georgia">
-                  {reviewStats?.averageReviewTime ? 
-                    `${Math.round(reviewStats.averageReviewTime / 60)}m` : 
+                  {reviewStats?.averageReviewTime ?
+                    `${Math.round(reviewStats.averageReviewTime / 60)}m` :
                     'N/A'
                   }
                 </div>
@@ -249,23 +249,23 @@ const AuditStatsDashboard: React.FC<AuditStatsDashboardProps> = ({ onRefresh }) 
               <RefreshCw className="w-4 h-4" />
               <span>Refresh Data</span>
             </Button>
-            
+
             <Button onClick={handleExport} variant="outline" className="flex items-center space-x-2">
               <Download className="w-4 h-4" />
               <span>Export Logs</span>
             </Button>
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               className="flex items-center space-x-2"
               onClick={() => window.location.href = '#pending'}
             >
               <Clock className="w-4 h-4 text-yellow-500" />
               <span>View Pending ({auditStats?.pendingReviews || 0})</span>
             </Button>
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               className="flex items-center space-x-2"
               onClick={() => window.location.href = '#flagged'}
             >

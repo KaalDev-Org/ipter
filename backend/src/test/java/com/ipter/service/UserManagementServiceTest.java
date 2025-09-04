@@ -90,7 +90,7 @@ class UserManagementServiceTest {
         verify(userRepository).existsByEmail("test@example.com");
         verify(passwordEncoder).encode("password123");
         verify(userRepository).save(any(User.class));
-        verify(auditService).logUserCreation(any(User.class), any());
+        // Audit logging is now handled by frontend
     }
 
     @Test
@@ -173,6 +173,6 @@ class UserManagementServiceTest {
         verify(userRepository).findById(userId);
         verify(userRepository).save(any(User.class));
         verify(sessionManagementService).invalidateSession(userId.toString());
-        verify(auditService).logUserStatusChange(any(User.class), eq(false), any());
+        // Audit logging is now handled by frontend
     }
 }

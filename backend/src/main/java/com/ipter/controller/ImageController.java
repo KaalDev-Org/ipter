@@ -20,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
@@ -31,8 +30,6 @@ import com.ipter.dto.OCRResultDTO;
 import com.ipter.dto.SerialNumberUpdateRequest;
 import com.ipter.dto.SerialNumberUpdateResponse;
 import com.ipter.dto.UploadAndExtractResponse;
-import com.ipter.repository.ProjectRepository;
-import com.ipter.repository.UserRepository;
 import com.ipter.service.GeminiService;
 import com.ipter.service.ImageService;
 
@@ -54,12 +51,6 @@ public class ImageController {
     @Autowired
     private GeminiService geminiService;
 
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private ProjectRepository projectRepository;
-    
     /**
      * Upload an image for processing
      */

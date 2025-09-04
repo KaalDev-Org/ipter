@@ -37,11 +37,9 @@ public class GeminiService {
     @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent}")
     private String apiUrl;
     
-    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
     public GeminiService(RestTemplate restTemplate, ObjectMapper objectMapper) {
-        this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
 

@@ -46,19 +46,16 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     List<AuditLog> findByEntityId(UUID entityId);
     
     /**
-     * Find audit logs within date range
+     * Find audit logs by date range
      */
     @Query("SELECT a FROM AuditLog a WHERE a.timestamp BETWEEN :startDate AND :endDate ORDER BY a.timestamp DESC")
-    List<AuditLog> findByTimestampBetween(@Param("startDate") LocalDateTime startDate, 
-                                         @Param("endDate") LocalDateTime endDate);
+    List<AuditLog> findByTimestampBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
     
     /**
-     * Find audit logs within date range with pagination
+     * Find audit logs by date range with pagination
      */
     @Query("SELECT a FROM AuditLog a WHERE a.timestamp BETWEEN :startDate AND :endDate ORDER BY a.timestamp DESC")
-    Page<AuditLog> findByTimestampBetween(@Param("startDate") LocalDateTime startDate, 
-                                         @Param("endDate") LocalDateTime endDate, 
-                                         Pageable pageable);
+    Page<AuditLog> findByTimestampBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate, Pageable pageable);
     
     /**
      * Find recent audit logs
@@ -85,53 +82,39 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
      * Count audit logs by action
      */
     long countByAction(String action);
-
+    
     /**
-     * Find audit logs by review status
+     * Find all audit logs ordered by timestamp (most recent first)
      */
-    List<AuditLog> findByReviewStatus(com.ipter.model.ReviewStatus reviewStatus);
-
+    @Query("SELECT a FROM AuditLog a ORDER BY a.timestamp DESC")
+    List<AuditLog> findAllOrderByTimestampDesc();
+    
     /**
-     * Find audit logs by review status with pagination
+     * Find all audit logs ordered by timestamp with pagination
      */
-    Page<AuditLog> findByReviewStatus(com.ipter.model.ReviewStatus reviewStatus, Pageable pageable);
-
+    @Query("SELECT a FROM AuditLog a ORDER BY a.timestamp DESC")
+    Page<AuditLog> findAllOrderByTimestampDesc(Pageable pageable);
+    
     /**
-     * Find audit logs by reviewed by user
+     * Find audit logs by IP address
      */
-    List<AuditLog> findByReviewedBy(User reviewedBy);
-
+    List<AuditLog> findByIpAddress(String ipAddress);
+    
     /**
-     * Count audit logs by review status
+     * Count total audit logs
      */
-    long countByReviewStatus(com.ipter.model.ReviewStatus reviewStatus);
-
+    @Query("SELECT COUNT(a) FROM AuditLog a")
+    long countTotalLogs();
+    
     /**
-     * Find pending review logs (PENDING status)
+     * Find audit logs by multiple actions
      */
-    @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus = 'PENDING' ORDER BY a.timestamp DESC")
-    List<AuditLog> findPendingReviewLogs();
-
+    @Query("SELECT a FROM AuditLog a WHERE a.action IN :actions ORDER BY a.timestamp DESC")
+    List<AuditLog> findByActionIn(@Param("actions") List<String> actions);
+    
     /**
-     * Find flagged audit logs (FLAGGED status)
+     * Find audit logs by user and date range
      */
-    @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus = 'FLAGGED' ORDER BY a.timestamp DESC")
-    List<AuditLog> findFlaggedLogs();
-
-    /**
-     * Find reviewed logs by date range
-     */
-    @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus != 'PENDING' AND a.reviewedAt BETWEEN :startDate AND :endDate ORDER BY a.reviewedAt DESC")
-    List<AuditLog> findReviewedLogsByDateRange(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
-
-    /**
-     * Find audit logs by review session
-     */
-    List<AuditLog> findByReviewSession(com.ipter.model.ReviewSession reviewSession);
-
-    /**
-     * Find audit logs by review session ordered by timestamp
-     */
-    @Query("SELECT a FROM AuditLog a WHERE a.reviewSession = :reviewSession ORDER BY a.timestamp DESC")
-    List<AuditLog> findByReviewSessionOrderByTimestampDesc(@Param("reviewSession") com.ipter.model.ReviewSession reviewSession);
+    @Query("SELECT a FROM AuditLog a WHERE a.performedBy = :user AND a.timestamp BETWEEN :startDate AND :endDate ORDER BY a.timestamp DESC")
+    List<AuditLog> findByUserAndDateRange(@Param("user") User user, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
 }
