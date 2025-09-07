@@ -8,6 +8,9 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -20,19 +23,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.core.io.Resource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 import com.ipter.dto.ImageProcessingResponse;
 import com.ipter.dto.ImageUploadRequest;
 import com.ipter.dto.ImageUploadResponse;
 import com.ipter.dto.OCRResultDTO;
+import com.ipter.dto.ProjectResponse;
 import com.ipter.dto.SerialNumberUpdateRequest;
 import com.ipter.dto.SerialNumberUpdateResponse;
 import com.ipter.dto.UploadAndExtractResponse;
 import com.ipter.service.GeminiService;
 import com.ipter.service.ImageService;
+import com.ipter.service.ProjectService;
 
 import jakarta.validation.Valid;
 
@@ -51,6 +53,9 @@ public class ImageController {
 
     @Autowired
     private GeminiService geminiService;
+
+    @Autowired
+    private ProjectService projectService;
 
     /**
      * Upload an image for processing
@@ -279,17 +284,29 @@ public class ImageController {
     public ResponseEntity<?> uploadAndExtract(
             @RequestParam("file") MultipartFile file,
             @RequestParam("projectId") UUID projectId,
-            @RequestParam(value = "description", required = false) String description) {
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "exampleNumber", required = false) String exampleNumber) {
         try {
-            logger.info("Upload-and-extract for: {} (Project: {})", file.getOriginalFilename(), projectId);
+            logger.info("Upload-and-extract for: {} (Project: {}) with example: {}", file.getOriginalFilename(), projectId, exampleNumber);
 
             // Reuse upload image logic but force immediate processing disabled (we'll do inline)
             ImageUploadRequest uploadRequest = new ImageUploadRequest(projectId, description, false);
             ImageUploadResponse uploadResp = imageService.uploadImage(file, uploadRequest);
 
-            // Load image entity and process inline
+            // Determine the example number to use - either from request parameter or from project
+            String effectiveExampleNumber = exampleNumber;
+            if (effectiveExampleNumber == null || effectiveExampleNumber.trim().isEmpty()) {
+                try {
+                    ProjectResponse project = projectService.getProjectById(projectId);
+                    effectiveExampleNumber = project.getExampleContainerNumber();
+                } catch (Exception e) {
+                    logger.warn("Could not retrieve project example number: {}", e.getMessage());
+                }
+            }
+
+            // Load image entity and process inline with example number
             byte[] imageBytes = file.getBytes();
-            OCRResultDTO ocr = geminiService.extractContainerNumbers(imageBytes, file.getOriginalFilename(), file.getContentType());
+            OCRResultDTO ocr = geminiService.extractContainerNumbers(imageBytes, file.getOriginalFilename(), file.getContentType(), effectiveExampleNumber);
 
             // Save extracted data and update image metadata
             if (ocr.getSuccess()) {

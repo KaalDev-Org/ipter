@@ -109,6 +109,11 @@ public class Project {
     @Column(name = "master_data_count")
     private int masterDataCount = 0;
 
+    // Example container number to help improve Gemini extraction accuracy
+    @Size(max = 50, message = "Example container number cannot exceed 50 characters")
+    @Column(name = "example_container_number")
+    private String exampleContainerNumber;
+
     // Statistics fields
     private int totalImages = 0;
     private int processedImages = 0;
@@ -203,6 +208,9 @@ public class Project {
 
     public int getMasterDataCount() { return masterDataCount; }
     public void setMasterDataCount(int masterDataCount) { this.masterDataCount = masterDataCount; }
+
+    public String getExampleContainerNumber() { return exampleContainerNumber; }
+    public void setExampleContainerNumber(String exampleContainerNumber) { this.exampleContainerNumber = exampleContainerNumber; }
 
     @PreUpdate
     public void preUpdate() {

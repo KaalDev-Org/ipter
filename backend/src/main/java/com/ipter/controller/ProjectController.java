@@ -204,9 +204,11 @@ public class ProjectController {
     public ResponseEntity<?> uploadAndProcessPdf(
             @PathVariable UUID projectId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(defaultValue = "false") boolean forceReprocess) {
+            @RequestParam(defaultValue = "false") boolean forceReprocess,
+            @RequestParam(value = "exampleNumber", required = false) String exampleNumber) {
         try {
-            ProcessPdfResponse response = projectService.uploadAndProcessPdf(projectId, file, forceReprocess);
+            logger.info("Upload-and-process-pdf for project: {} with example: {}", projectId, exampleNumber);
+            ProcessPdfResponse response = projectService.uploadAndProcessPdf(projectId, file, forceReprocess, exampleNumber);
 
             Map<String, Object> result = new HashMap<>();
             result.put("message", "PDF processed successfully");

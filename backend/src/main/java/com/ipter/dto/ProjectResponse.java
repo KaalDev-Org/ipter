@@ -1,11 +1,11 @@
 package com.ipter.dto;
 
-import com.ipter.model.Project;
-import com.ipter.model.ProjectStatus;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
+
+import com.ipter.model.Project;
+import com.ipter.model.ProjectStatus;
 
 /**
  * DTO for project response
@@ -37,6 +37,7 @@ public class ProjectResponse {
     // Processing status fields
     private boolean masterDataProcessed;
     private int masterDataCount;
+    private String exampleContainerNumber;
     private int totalImages;
     private int processedImages;
     private int failedImages;
@@ -70,6 +71,7 @@ public class ProjectResponse {
         
         this.masterDataProcessed = project.isMasterDataProcessed();
         this.masterDataCount = project.getMasterDataCount();
+        this.exampleContainerNumber = project.getExampleContainerNumber();
         this.totalImages = project.getTotalImages();
         this.processedImages = project.getProcessedImages();
         this.failedImages = project.getFailedImages();
@@ -140,7 +142,10 @@ public class ProjectResponse {
     
     public int getMasterDataCount() { return masterDataCount; }
     public void setMasterDataCount(int masterDataCount) { this.masterDataCount = masterDataCount; }
-    
+
+    public String getExampleContainerNumber() { return exampleContainerNumber; }
+    public void setExampleContainerNumber(String exampleContainerNumber) { this.exampleContainerNumber = exampleContainerNumber; }
+
     public int getTotalImages() { return totalImages; }
     public void setTotalImages(int totalImages) { this.totalImages = totalImages; }
     

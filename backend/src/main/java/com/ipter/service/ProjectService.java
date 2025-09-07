@@ -202,6 +202,14 @@ public class ProjectService {
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ProcessPdfResponse uploadAndProcessPdf(UUID projectId, MultipartFile file, boolean forceReprocess) throws Exception {
+        return uploadAndProcessPdf(projectId, file, forceReprocess, null);
+    }
+
+    /**
+     * Upload and immediately process a PDF for master data extraction with optional example number
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
+    public ProcessPdfResponse uploadAndProcessPdf(UUID projectId, MultipartFile file, boolean forceReprocess, String exampleNumber) throws Exception {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new Exception("Project not found with ID: " + projectId));
 
@@ -232,11 +240,11 @@ public class ProjectService {
 
         // Audit logging will be handled by frontend
 
-        // Immediate processing
+        // Immediate processing with example number
         ProcessPdfRequest request = new ProcessPdfRequest(projectId);
         request.setForceReprocess(forceReprocess);
         request.setPdfFilePath(filePath.toString());
-        return processPdfFile(request);
+        return processPdfFile(request, exampleNumber);
     }
 
     /**
@@ -244,6 +252,14 @@ public class ProjectService {
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
     public ProcessPdfResponse processPdfFile(ProcessPdfRequest request) throws Exception {
+        return processPdfFile(request, null);
+    }
+
+    /**
+     * Process PDF file to extract master data using Gemini API with optional example number
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canCreateProjects(authentication.name)")
+    public ProcessPdfResponse processPdfFile(ProcessPdfRequest request, String exampleNumber) throws Exception {
         long startTime = System.currentTimeMillis();
 
         Project project = projectRepository.findById(request.getProjectId())
@@ -275,9 +291,15 @@ public class ProjectService {
         List<String> extractedNumbers = new ArrayList<>();
         List<String> errors = new ArrayList<>();
 
-        // Read entire PDF and send directly to Gemini
+        // Determine the example number to use - either from parameter or from project
+        String effectiveExampleNumber = exampleNumber;
+        if (effectiveExampleNumber == null || effectiveExampleNumber.trim().isEmpty()) {
+            effectiveExampleNumber = project.getExampleContainerNumber();
+        }
+
+        // Read entire PDF and send directly to Gemini with example number
         byte[] pdfBytes = Files.readAllBytes(pdfFilePath);
-        com.ipter.dto.OCRResultDTO ocr = geminiService.extractContainerNumbersFromPdf(pdfBytes, pdfFilePath.getFileName().toString());
+        com.ipter.dto.OCRResultDTO ocr = geminiService.extractContainerNumbersFromPdf(pdfBytes, pdfFilePath.getFileName().toString(), effectiveExampleNumber);
 
         int lineCounter = 0;
         if (Boolean.TRUE.equals(ocr.getSuccess()) && ocr.getContainerNumbers() != null) {

@@ -484,6 +484,7 @@ export interface ProjectResponse {
   remarks?: string;
   masterDataProcessed: boolean;
   masterDataCount: number;
+  exampleContainerNumber?: string;
   totalImages: number;
   processedImages: number;
   failedImages: number;
@@ -702,15 +703,20 @@ export const projectAPI = {
   },
 
   // Upload and process PDF in a single step (new combined API)
-  uploadAndProcessPdf: async (projectId: string, file: File, forceReprocess = false): Promise<{ message: string; result: ProcessPdfResponse }> => {
+  uploadAndProcessPdf: async (projectId: string, file: File, forceReprocess = false, exampleNumber?: string): Promise<{ message: string; result: ProcessPdfResponse }> => {
     const formData = new FormData();
     formData.append('file', file);
+
+    const params: any = { forceReprocess };
+    if (exampleNumber && exampleNumber.trim()) {
+      params.exampleNumber = exampleNumber.trim();
+    }
 
     const response = await api.post(`/projects/${projectId}/upload-and-process-pdf`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      params: { forceReprocess }
+      params
     });
     return response.data;
   },
@@ -754,11 +760,15 @@ export const projectAPI = {
   },
 
   // Extract containers using Gemini API
-  extractContainersGemini: async (projectId: string, imageFile: File): Promise<GeminiExtractionResponse> => {
+  extractContainersGemini: async (projectId: string, imageFile: File, exampleNumber?: string): Promise<GeminiExtractionResponse> => {
     const formData = new FormData();
     formData.append('file', imageFile);
     formData.append('projectId', projectId);
     formData.append('description', 'Container extraction from product image');
+
+    if (exampleNumber && exampleNumber.trim()) {
+      formData.append('exampleNumber', exampleNumber.trim());
+    }
 
     const response = await fetch(`${API_BASE_URL}/images/upload-and-extract`, {
       method: 'POST',
