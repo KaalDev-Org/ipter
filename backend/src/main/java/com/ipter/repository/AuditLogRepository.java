@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.ipter.model.AuditLog;
+import com.ipter.model.ReviewStatus;
 import com.ipter.model.User;
 
 /**
@@ -117,4 +118,72 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
      */
     @Query("SELECT a FROM AuditLog a WHERE a.performedBy = :user AND a.timestamp BETWEEN :startDate AND :endDate ORDER BY a.timestamp DESC")
     List<AuditLog> findByUserAndDateRange(@Param("user") User user, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    // Review-related query methods
+
+    /**
+     * Find audit logs by review status
+     */
+    List<AuditLog> findByReviewStatus(ReviewStatus reviewStatus);
+
+    /**
+     * Find audit logs by review status with pagination
+     */
+    Page<AuditLog> findByReviewStatus(ReviewStatus reviewStatus, Pageable pageable);
+
+    /**
+     * Find pending audit logs (review status = PENDING)
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus = 'PENDING' ORDER BY a.timestamp DESC")
+    List<AuditLog> findPendingReviews();
+
+    /**
+     * Find pending audit logs with pagination
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus = 'PENDING' ORDER BY a.timestamp DESC")
+    Page<AuditLog> findPendingReviews(Pageable pageable);
+
+    /**
+     * Find audit logs reviewed by a specific user
+     */
+    List<AuditLog> findByReviewedBy(User reviewedBy);
+
+    /**
+     * Find audit logs reviewed by a specific user with pagination
+     */
+    Page<AuditLog> findByReviewedBy(User reviewedBy, Pageable pageable);
+
+    /**
+     * Find audit logs by review status and reviewed by user
+     */
+    List<AuditLog> findByReviewStatusAndReviewedBy(ReviewStatus reviewStatus, User reviewedBy);
+
+    /**
+     * Count audit logs by review status
+     */
+    long countByReviewStatus(ReviewStatus reviewStatus);
+
+    /**
+     * Count pending reviews
+     */
+    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.reviewStatus = 'PENDING'")
+    long countPendingReviews();
+
+    /**
+     * Find audit logs by review date range
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.reviewedAt BETWEEN :startDate AND :endDate ORDER BY a.reviewedAt DESC")
+    List<AuditLog> findByReviewedAtBetween(@Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
+
+    /**
+     * Find audit logs by multiple review statuses
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.reviewStatus IN :statuses ORDER BY a.timestamp DESC")
+    List<AuditLog> findByReviewStatusIn(@Param("statuses") List<ReviewStatus> statuses);
+
+    /**
+     * Find audit logs by IDs for bulk operations
+     */
+    @Query("SELECT a FROM AuditLog a WHERE a.id IN :ids")
+    List<AuditLog> findByIdIn(@Param("ids") List<UUID> ids);
 }

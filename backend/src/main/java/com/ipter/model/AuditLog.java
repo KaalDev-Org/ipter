@@ -7,6 +7,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -18,8 +20,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * Simplified audit log entity for tracking user activities
- * Called from frontend for every action
+ * Audit log entity for tracking user activities with review functionality
+ * Supports persistent review states and reviewer tracking
  */
 @Entity
 @Table(name = "audit_logs")
@@ -55,6 +57,22 @@ public class AuditLog {
     
     @Size(max = 500, message = "User agent cannot exceed 500 characters")
     private String userAgent;
+
+    // Review-related fields
+    @Enumerated(EnumType.STRING)
+    @Column(name = "review_status")
+    private ReviewStatus reviewStatus = ReviewStatus.PENDING;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
+    private User reviewedBy;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
+    @Column(name = "review_comments", length = 2000)
+    private String reviewComments;
 
     // Constructors
     public AuditLog() {}
@@ -140,6 +158,38 @@ public class AuditLog {
     public void setUserAgent(String userAgent) {
         this.userAgent = userAgent;
     }
+
+    public ReviewStatus getReviewStatus() {
+        return reviewStatus;
+    }
+
+    public void setReviewStatus(ReviewStatus reviewStatus) {
+        this.reviewStatus = reviewStatus;
+    }
+
+    public User getReviewedBy() {
+        return reviewedBy;
+    }
+
+    public void setReviewedBy(User reviewedBy) {
+        this.reviewedBy = reviewedBy;
+    }
+
+    public LocalDateTime getReviewedAt() {
+        return reviewedAt;
+    }
+
+    public void setReviewedAt(LocalDateTime reviewedAt) {
+        this.reviewedAt = reviewedAt;
+    }
+
+    public String getReviewComments() {
+        return reviewComments;
+    }
+
+    public void setReviewComments(String reviewComments) {
+        this.reviewComments = reviewComments;
+    }
     
     @Override
     public String toString() {
@@ -153,6 +203,10 @@ public class AuditLog {
                 ", timestamp=" + timestamp +
                 ", ipAddress='" + ipAddress + '\'' +
                 ", userAgent='" + userAgent + '\'' +
+                ", reviewStatus=" + reviewStatus +
+                ", reviewedBy=" + (reviewedBy != null ? reviewedBy.getUsername() : null) +
+                ", reviewedAt=" + reviewedAt +
+                ", reviewComments='" + reviewComments + '\'' +
                 '}';
     }
 }

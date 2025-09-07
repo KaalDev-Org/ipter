@@ -156,13 +156,43 @@ public class GeminiService {
             Analyze this PDF document and extract all container numbers/serial numbers/medication numbers found in the content.
             Container numbers/serial numbers/medication numbers typically will be 6-8 digits numbers only.
 
-            Return a JSON object with an array of items. Each item must include the container number and a confidence percentage string.
+            CONFIDENCE CALCULATION - CRITICAL FOR ACCURACY:
+            You MUST analyze each container number's visual quality and assign realistic confidence scores based on:
+
+            VISUAL QUALITY FACTORS FOR PDF TEXT:
+            1. TEXT CLARITY: Sharp, crisp text = higher confidence, blurry/pixelated = lower confidence
+            2. RESOLUTION: High-quality PDF = higher confidence, low-resolution scan = lower confidence
+            3. CONTRAST: Clear text against background = higher confidence, poor contrast = lower confidence
+            4. COMPLETENESS: Fully visible numbers = higher confidence, partially cut off = lower confidence
+            5. FONT QUALITY: Clear fonts = higher confidence, distorted/corrupted fonts = lower confidence
+            6. SCAN QUALITY: Clean scans = higher confidence, artifacts/noise = lower confidence
+            7. ORIENTATION: Straight text = higher confidence, rotated/skewed = lower confidence
+
+            CONFIDENCE SCORING FOR PDF:
+            - 95-99%: Perfect digital text, crystal clear, high resolution
+            - 90-94%: Excellent quality with minor imperfections
+            - 85-89%: Good quality with some clarity issues
+            - 80-84%: Fair quality, readable but with noticeable issues
+            - 75-79%: Marginal quality, readable but challenging
+            - 70-74%: Poor quality, barely readable
+            - 65-69%: Very poor quality, highly uncertain
+            - 60-64%: Extremely poor quality, best guess only
+            - Below 60%: Do not include unless absolutely necessary
+
+            REALISTIC CONFIDENCE REQUIREMENTS:
+            - DO NOT default to high confidence scores (95%+) for all extractions
+            - Most PDF scans will have varying quality across different areas
+            - Be honest about text quality - lower confidence is better than false accuracy
+            - Consider that different parts of the PDF may have different scan quality
+
+            Return a JSON object with an array of items. Each item must include the container number and a realistic confidence percentage based on visual analysis.
 
             Respond strictly in this JSON format:
             {
               \"items\": [
-                { \"number\": \"ABCD1234567\", \"confidence\": \"98%\" },
-                { \"number\": \"EFGH2345678\", \"confidence\": \"92%\" }
+                { \"number\": \"ABCD1234567\", \"confidence\": \"87%\" },
+                { \"number\": \"EFGH2345678\", \"confidence\": \"92%\" },
+                { \"number\": \"IJKL3456789\", \"confidence\": \"74%\" }
               ]
             }
 
@@ -203,7 +233,8 @@ public class GeminiService {
             - Extract serial numbers where possible, skip positions where impossible
 
             RESPONSE FORMAT:
-            You MUST return results in this EXACT JSON format. Adapt the number of rows and positions based on what you actually see:
+            You MUST return results in this EXACT JSON format. Adapt the number of rows and positions based on what you actually see.
+            CRITICAL: Each position must have its own individual confidence score based on visual analysis:
             {
               "grid_structure": {
                 "rows": [ACTUAL_ROW_COUNT],
@@ -211,16 +242,23 @@ public class GeminiService {
                 "total_products": [ACTUAL_TOTAL_COUNT]
               },
               "row1": {
-                "1": "ACTUAL_SERIAL_1", "confidence": "95%",
-                "2": "ACTUAL_SERIAL_2", "confidence": "90%",
-                "3": "ACTUAL_SERIAL_3", "confidence": "85%"
+                "1": { "number": "ACTUAL_SERIAL_1", "confidence": "87%" },
+                "2": { "number": "ACTUAL_SERIAL_2", "confidence": "92%" },
+                "3": { "number": "ACTUAL_SERIAL_3", "confidence": "74%" }
               },
               "row2": {
-                "1": "ACTUAL_SERIAL_4", "confidence": "92%",
-                "2": "ACTUAL_SERIAL_5", "confidence": "88%",
-                "3": "ACTUAL_SERIAL_6", "confidence": "93%"
+                "1": { "number": "ACTUAL_SERIAL_4", "confidence": "96%" },
+                "2": { "number": "ACTUAL_SERIAL_5", "confidence": "68%" },
+                "3": { "number": "ACTUAL_SERIAL_6", "confidence": "89%" }
               }
             }
+
+            MANDATORY CONFIDENCE REQUIREMENTS:
+            - Each container number MUST have its own individual confidence percentage
+            - Confidence scores MUST vary based on actual visual quality assessment
+            - DO NOT use the same confidence score for multiple positions
+            - DO NOT default to 95% - analyze each position individually
+            - Confidence scores should realistically range from 60% to 99%
 
             CRITICAL REQUIREMENTS:
             - The "grid_structure" field is MANDATORY and must contain the EXACT dimensions you observe
@@ -228,12 +266,47 @@ public class GeminiService {
             - Only include positions in row data where you can extract a serial number
             - Maximum supported: 8 columns, 6 rows (adjust based on actual image)
 
-            CONFIDENCE GUIDELINES:
-            - 95-100%: Serial number is crystal clear and fully readable
-            - 85-94%: Serial number is mostly clear with minor uncertainty
-            - 70-84%: Serial number is readable but some characters are unclear
-            - 50-69%: Serial number is partially obscured but best guess provided
-            - Below 50%: Do not include unless you're reasonably confident
+            CONFIDENCE CALCULATION - CRITICAL FOR ACCURACY:
+            You MUST analyze each container number's visual quality and assign realistic confidence scores based on the following detailed criteria:
+
+            VISUAL QUALITY ASSESSMENT FACTORS:
+            1. IMAGE RESOLUTION: Higher resolution = higher confidence potential
+            2. LIGHTING CONDITIONS: Good lighting = higher confidence, shadows/glare = lower confidence
+            3. TEXT CLARITY: Sharp, crisp text = higher confidence, blurry text = lower confidence
+            4. OCCLUSION: Fully visible = higher confidence, partially hidden = lower confidence
+            5. VIEWING ANGLE: Straight-on view = higher confidence, angled view = lower confidence
+            6. CONTRAST: High contrast between text and background = higher confidence
+            7. FOCUS: In-focus text = higher confidence, out-of-focus = lower confidence
+            8. WEAR/DAMAGE: Clean labels = higher confidence, worn/damaged labels = lower confidence
+
+            CONFIDENCE SCORING GUIDELINES:
+            - 95-99%: Perfect conditions - crystal clear, high resolution, excellent lighting, straight angle, sharp focus, high contrast
+            - 90-94%: Excellent conditions - very clear text with minor imperfections (slight angle, minor lighting issues)
+            - 85-89%: Good conditions - clearly readable with some quality issues (moderate blur, lighting variations)
+            - 80-84%: Fair conditions - readable but with noticeable quality issues (some blur, poor lighting, slight occlusion)
+            - 75-79%: Marginal conditions - readable but challenging (significant blur, poor contrast, partial occlusion)
+            - 70-74%: Poor conditions - barely readable, multiple quality issues present
+            - 65-69%: Very poor conditions - highly uncertain reading, severe quality issues
+            - 60-64%: Extremely poor conditions - best guess only, very low certainty
+            - Below 60%: Do not include unless absolutely necessary
+
+            REALISTIC CONFIDENCE DISTRIBUTION:
+            - DO NOT default to 95% for all extractions
+            - Most real-world images will have varying quality across different positions
+            - Expect confidence scores to range from 60% to 99% based on actual visual conditions
+            - Consider that different positions in the same image may have different lighting, focus, or angles
+            - Be honest about uncertainty - it's better to report lower confidence than to overstate accuracy
+
+            SPECIFIC CONFIDENCE ASSESSMENT PROCESS:
+            For each container number, ask yourself:
+            1. How clear and sharp is this specific text?
+            2. Are there any shadows, reflections, or glare affecting this area?
+            3. Is this text at an angle or straight-on?
+            4. Is the entire number visible or partially obscured?
+            5. How good is the contrast between the text and background?
+            6. Are there any focus issues in this specific area?
+
+            Base your confidence percentage on honest answers to these questions.
 
             QUALITY CONTROL:
             - Verify the grid structure matches the physical layout exactly
@@ -241,7 +314,12 @@ public class GeminiService {
             - Double-check that each extracted serial number corresponds to a visible product
             - If unsure about a character, provide your best interpretation
 
-            Focus on ACCURATE GRID DETECTION first, then UNIQUE SERIAL EXTRACTION. The grid structure is more important than extracting every serial number.
+            FINAL CRITICAL REMINDERS:
+            1. Focus on ACCURATE GRID DETECTION first, then UNIQUE SERIAL EXTRACTION
+            2. The grid structure is more important than extracting every serial number
+            3. CONFIDENCE SCORES MUST BE REALISTIC - analyze each position individually
+            4. DO NOT use 95% as a default - vary confidence based on actual visual quality
+            5. It's better to report honest uncertainty than false high confidence
             """;
     }
     
@@ -363,34 +441,49 @@ public class GeminiService {
 
                     for (Map.Entry<String, Object> posEntry : rowMap.entrySet()) {
                         String posKey = posEntry.getKey();
-                        String value = String.valueOf(posEntry.getValue());
+                        Object posValue = posEntry.getValue();
 
-                        if (posKey.equals("confidence")) {
-                            // Skip confidence entries that apply to the whole row
-                            continue;
-                        } else {
-                            try {
-                                int position = Integer.parseInt(posKey);
-                                // Increased from 5 to 8 to support larger grids
-                                if (position >= 1 && position <= 8) {
-                                    if (value != null && !value.trim().isEmpty() &&
-                                        !value.equals("null") && !value.equals("N/A")) {
+                        try {
+                            int position = Integer.parseInt(posKey);
+                            // Increased from 5 to 8 to support larger grids
+                            if (position >= 1 && position <= 8) {
+                                String containerNumber = null;
+                                String confidence = "75%"; // More realistic default instead of 95%
 
-                                        // Look for individual confidence or use default
-                                        String confidence = "95%"; // default
-                                        String confidenceKey = "confidence";
-                                        if (rowMap.containsKey(confidenceKey)) {
-                                            confidence = String.valueOf(rowMap.get(confidenceKey));
-                                        }
+                                // Handle new format: {"number": "ABC123", "confidence": "87%"}
+                                if (posValue instanceof Map) {
+                                    Map<String, Object> posMap = (Map<String, Object>) posValue;
+                                    Object numberObj = posMap.get("number");
+                                    Object confObj = posMap.get("confidence");
 
-                                        rowData.setEntry(position, value.trim(), confidence);
-                                        logger.debug("Extracted container: {} at position {} with confidence {}",
-                                            value.trim(), position, confidence);
+                                    if (numberObj != null) {
+                                        containerNumber = String.valueOf(numberObj).trim();
+                                    }
+                                    if (confObj != null) {
+                                        confidence = String.valueOf(confObj);
                                     }
                                 }
-                            } catch (NumberFormatException ignored) {
-                                // Skip non-numeric keys
+                                // Handle legacy format: direct string value
+                                else if (posValue != null) {
+                                    String value = String.valueOf(posValue);
+                                    if (!value.trim().isEmpty() && !value.equals("null") && !value.equals("N/A")) {
+                                        containerNumber = value.trim();
+                                        // For legacy format, look for row-level confidence
+                                        if (rowMap.containsKey("confidence")) {
+                                            confidence = String.valueOf(rowMap.get("confidence"));
+                                        }
+                                    }
+                                }
+
+                                // Only add if we have a valid container number
+                                if (containerNumber != null && !containerNumber.isEmpty()) {
+                                    rowData.setEntry(position, containerNumber, confidence);
+                                    logger.debug("Extracted container: {} at position {} with confidence {}",
+                                        containerNumber, position, confidence);
+                                }
                             }
+                        } catch (NumberFormatException ignored) {
+                            // Skip non-numeric keys (like "confidence" at row level)
                         }
                     }
 
