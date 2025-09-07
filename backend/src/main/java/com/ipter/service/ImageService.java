@@ -330,6 +330,9 @@ public class ImageService {
                         response.setErrorMessage(image.getErrorMessage());
                     }
 
+                    // Set verification status
+                    response.setVerified(image.isVerified());
+
                     return response;
                 })
                 .collect(Collectors.toList());
@@ -647,5 +650,63 @@ public class ImageService {
             return imageOpt.get().getContentType();
         }
         return null;
+    }
+
+    /**
+     * Update image verification status
+     */
+    public void updateVerificationStatus(UUID imageId, boolean isVerified) {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
+
+        image.setVerified(isVerified);
+        imageRepository.save(image);
+
+        logger.info("Updated verification status for image {} to {}", imageId, isVerified);
+    }
+
+    /**
+     * Get verified images for a project
+     */
+    public List<ImageProcessingResponse> getVerifiedProjectImages(UUID projectId) {
+        List<Image> images = imageRepository.findByProjectIdAndIsVerified(projectId, true);
+        return images.stream()
+                .map(this::convertToImageProcessingResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get images by verification status
+     */
+    public List<ImageProcessingResponse> getImagesByVerificationStatus(boolean isVerified) {
+        List<Image> images = imageRepository.findByIsVerified(isVerified);
+        return images.stream()
+                .map(this::convertToImageProcessingResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert Image entity to ImageProcessingResponse DTO
+     */
+    private ImageProcessingResponse convertToImageProcessingResponse(Image image) {
+        ImageProcessingResponse response = new ImageProcessingResponse();
+        response.setImageId(image.getId());
+        response.setOriginalFilename(image.getOriginalFilename());
+        response.setProcessingStatus(image.getProcessingStatus());
+        response.setConfidence(image.getConfidence());
+        response.setContainerNumbersFound(image.getContainerNumbersFound());
+        response.setProcessedAt(image.getProcessedAt());
+        response.setErrorMessage(image.getErrorMessage());
+        response.setVerified(image.isVerified());
+
+        // Get extracted container numbers
+        List<ExtractedData> extractedDataList = extractedDataRepository.findByImageId(image.getId());
+        List<String> containerNumbers = extractedDataList.stream()
+                .filter(ed -> ed.getContainerNumber() != null && !ed.getContainerNumber().trim().isEmpty())
+                .map(ed -> ed.getContainerNumber().trim())
+                .collect(Collectors.toList());
+        response.setContainerNumbers(containerNumbers);
+
+        return response;
     }
 }

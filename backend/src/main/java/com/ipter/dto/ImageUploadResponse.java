@@ -18,6 +18,7 @@ public class ImageUploadResponse {
     private UUID projectId;
     private LocalDateTime uploadedAt;
     private String message;
+    private boolean isVerified;
     
     // Constructors
     public ImageUploadResponse() {}
@@ -98,5 +99,13 @@ public class ImageUploadResponse {
     
     public void setMessage(String message) {
         this.message = message;
+    }
+
+    public boolean isVerified() {
+        return isVerified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.isVerified = verified;
     }
 }

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -377,6 +378,65 @@ public class ImageController {
         } catch (Exception e) {
             logger.error("Error serving image {}: {}", imageId, e.getMessage());
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Update image verification status
+     */
+    @PutMapping("/{imageId}/verify")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('REVIEWER')")
+    public ResponseEntity<?> updateImageVerificationStatus(
+            @PathVariable UUID imageId,
+            @RequestParam boolean isVerified) {
+        try {
+            logger.info("Updating verification status for image: {} to {}", imageId, isVerified);
+
+            imageService.updateVerificationStatus(imageId, isVerified);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "Image verification status updated successfully");
+            result.put("imageId", imageId);
+            result.put("isVerified", isVerified);
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error updating verification status for image {}: {}", imageId, e.getMessage());
+
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Get verified images for a project
+     */
+    @GetMapping("/project/{projectId}/verified")
+    @PreAuthorize("hasRole('USER') or hasRole('REVIEWER') or hasRole('ADMINISTRATOR')")
+    public ResponseEntity<?> getVerifiedProjectImages(@PathVariable UUID projectId) {
+        try {
+            List<ImageProcessingResponse> images = imageService.getVerifiedProjectImages(projectId);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("data", images);
+            result.put("count", images.size());
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error getting verified project images {}: {}", projectId, e.getMessage());
+
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(error);
         }
     }
 

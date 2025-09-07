@@ -90,6 +90,13 @@ public class DataViewService {
      * Get project data view - compare all images in project with master data
      */
     public ProjectDataViewDTO getProjectDataView(UUID projectId) {
+        return getProjectDataView(projectId, true); // Default to verified images only
+    }
+
+    /**
+     * Get project data view with option to filter by verification status
+     */
+    public ProjectDataViewDTO getProjectDataView(UUID projectId, boolean verifiedOnly) {
         logger.info("Getting project data view for project: {}", projectId);
         
         Optional<Project> projectOpt = projectRepository.findById(projectId);
@@ -105,8 +112,10 @@ public class DataViewService {
             .map(MasterData::getContainerNumber)
             .collect(Collectors.toList());
         
-        // Get all images in the project
-        List<Image> images = imageRepository.findByProject(project);
+        // Get images in the project based on verification filter
+        List<Image> images = verifiedOnly ?
+            imageRepository.findByProjectAndIsVerified(project, true) :
+            imageRepository.findByProject(project);
         
         // Get extracted data for all images in the project
         List<ExtractedData> allExtractedData = extractedDataRepository.findByProjectId(projectId);

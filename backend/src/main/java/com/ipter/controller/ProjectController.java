@@ -250,13 +250,16 @@ public class ProjectController {
      */
     @GetMapping("/{projectId}/view-data")
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewReports(authentication.name)")
-    public ResponseEntity<?> viewProjectData(@PathVariable UUID projectId) {
+    public ResponseEntity<?> viewProjectData(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "true") boolean verifiedOnly) {
         try {
-            ProjectDataViewDTO projectDataView = dataViewService.getProjectDataView(projectId);
+            ProjectDataViewDTO projectDataView = dataViewService.getProjectDataView(projectId, verifiedOnly);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Project data retrieved successfully");
             response.put("data", projectDataView);
+            response.put("verifiedOnly", verifiedOnly);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
