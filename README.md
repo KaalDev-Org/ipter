@@ -235,5 +235,43 @@ cd backend
 mvn test
 ```
 
+## 🐳 Docker Deployment (Recommended)
+
+The easiest way to run IPTER is using Docker. This method handles all dependencies and configuration automatically.
+
+### Quick Start with Docker
+
+```bash
+# One-command deployment
+docker-compose up --build
+
+# Or use the convenience script
+./build-and-run.sh    # Linux/Mac
+build-and-run.bat     # Windows
+```
+
+### What You Get
+
+- ✅ Complete application stack (frontend + backend)
+- ✅ All dependencies pre-installed
+- ✅ Production-ready configuration
+- ✅ Automatic data persistence
+- ✅ Health checks and monitoring
+- ✅ Easy scaling and deployment
+
+### Access Points
+
+- **Frontend**: http://localhost
+- **Backend API**: http://localhost:8080/api
+- **Database Console**: http://localhost:8080/api/h2-console
+
+### Requirements
+
+- Docker Desktop (Windows/Mac) or Docker Engine (Linux)
+- 4GB RAM recommended
+- 2GB free disk space
+
+For detailed Docker deployment instructions, see [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md).
+
 ## License
 This project is proprietary software for on-premises deployment with licensing restrictions as specified in the project requirements.
