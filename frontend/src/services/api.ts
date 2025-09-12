@@ -600,20 +600,36 @@ export interface GridStructure {
   total_products: number;
 }
 
+// New grid-based response format from backend
+export interface GridPosition {
+  number: string;
+  confidence: string;
+}
+
+export interface GridRow {
+  [position: string]: GridPosition; // "1", "2", "3", etc.
+}
+
 export interface GeminiExtractionResponse {
-  data: {
-    imageId: string;
-    projectId: string;
-    imageName: string;
-    uploadedAt: string;
-    success: boolean;
-    message: string;
-    extractedText: string;
-    containerNumbers: ContainerNumber[];
-    confidence: number;
-    grid_structure?: GridStructure;
+  // Metadata
+  imageId: string;
+  projectId: string;
+  imageName: string;
+  uploadedAt: string;
+  success: boolean;
+
+  // Grid structure
+  grid_structure: {
+    rows: number;
+    columns: number;
+    total_products: number;
   };
-  message: string;
+
+  // Row data
+  row1: GridRow;
+  row2: GridRow;
+  row3: GridRow;
+  [key: string]: any; // Allow for additional row properties
 }
 
 export interface SerialNumberUpdate {

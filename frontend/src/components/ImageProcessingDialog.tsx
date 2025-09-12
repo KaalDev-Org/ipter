@@ -428,7 +428,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
       // Calculate final results
       const completedImages = processedImages.filter(img => img.status === 'completed');
       const totalContainers = completedImages.reduce((sum, img) =>
-        sum + (img.extractionResult?.data?.containerNumbers?.length || 0), 0);
+        sum + (img.extractionResult?.grid_structure?.total_products || 0), 0);
 
       controller.completeStep(2, `Successfully processed ${completedImages.length} images`, 3000);
 
@@ -789,14 +789,11 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                         <ContainerGridVisualization
                           imageUrl={completedImages[currentCarouselIndex].preview}
                           imageName={completedImages[currentCarouselIndex].file.name}
-                          containerNumbers={completedImages[currentCarouselIndex].extractionResult?.data?.containerNumbers || []}
-                          extractedText={completedImages[currentCarouselIndex].extractionResult?.data?.extractedText || ''}
-                          confidence={completedImages[currentCarouselIndex].extractionResult?.data?.confidence || 0}
-                          gridStructure={completedImages[currentCarouselIndex].extractionResult?.data?.grid_structure}
+                          extractionResult={completedImages[currentCarouselIndex].extractionResult}
                           editable={true}
                           onSerialNumberChange={(row, position, value) => {
                             // Use the backend image ID from the extraction result, not the local file ID
-                            const backendImageId = completedImages[currentCarouselIndex].extractionResult?.data?.imageId;
+                            const backendImageId = completedImages[currentCarouselIndex].extractionResult?.imageId;
                             const localImageId = completedImages[currentCarouselIndex].id;
 
                             console.log('Backend Image ID:', backendImageId);

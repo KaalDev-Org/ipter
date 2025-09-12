@@ -8,6 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import org.mockito.Mock;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -102,9 +103,11 @@ class ImageControllerTest {
                 .param("description", "Test upload with example number"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.message").value("Image uploaded and processed successfully"))
-                .andExpect(jsonPath("$.data.success").value(true))
-                .andExpect(jsonPath("$.data.imageName").value("test-image.jpg"));
+                .andExpect(jsonPath("$.grid_structure.rows").value(3))
+                .andExpect(jsonPath("$.grid_structure.columns").value(5))
+                .andExpect(jsonPath("$.grid_structure.total_products").value(15))
+                .andExpect(jsonPath("$.row1.1.number").exists())
+                .andExpect(jsonPath("$.row1.1.confidence").exists());
     }
 
     @Test
@@ -147,9 +150,11 @@ class ImageControllerTest {
                 .param("description", "Test upload without example number"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.message").value("Image uploaded and processed successfully"))
-                .andExpect(jsonPath("$.data.success").value(true))
-                .andExpect(jsonPath("$.data.imageName").value("test-image.jpg"));
+                .andExpect(jsonPath("$.grid_structure.rows").value(3))
+                .andExpect(jsonPath("$.grid_structure.columns").value(5))
+                .andExpect(jsonPath("$.grid_structure.total_products").value(15))
+                .andExpect(jsonPath("$.row1.1.number").exists())
+                .andExpect(jsonPath("$.row1.1.confidence").exists());
     }
 
     @Test
@@ -193,9 +198,11 @@ class ImageControllerTest {
                 .param("description", "Test upload with empty example number"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.message").value("Image uploaded and processed successfully"))
-                .andExpect(jsonPath("$.data.success").value(true))
-                .andExpect(jsonPath("$.data.imageName").value("test-image.jpg"));
+                .andExpect(jsonPath("$.grid_structure.rows").value(3))
+                .andExpect(jsonPath("$.grid_structure.columns").value(5))
+                .andExpect(jsonPath("$.grid_structure.total_products").value(15))
+                .andExpect(jsonPath("$.row1.1.number").exists())
+                .andExpect(jsonPath("$.row1.1.confidence").exists());
     }
 
     @Test
@@ -225,7 +232,8 @@ class ImageControllerTest {
 
         when(imageService.uploadImage(any(), any())).thenReturn(uploadResponse);
         when(projectService.getProjectById(projectId)).thenThrow(new RuntimeException("Project not found"));
-        when(geminiService.extractContainerNumbers(any(byte[].class), anyString(), anyString(), eq(exampleNumber)))
+        // When project service fails, the controller falls back to null as example number
+        when(geminiService.extractContainerNumbers(any(byte[].class), anyString(), anyString(), isNull()))
             .thenReturn(ocrResult);
 
         // When & Then - Should still work with provided example number
@@ -236,8 +244,10 @@ class ImageControllerTest {
                 .param("description", "Test upload with project service exception"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.message").value("Image uploaded and processed successfully"))
-                .andExpect(jsonPath("$.data.success").value(true))
-                .andExpect(jsonPath("$.data.imageName").value("test-image.jpg"));
+                .andExpect(jsonPath("$.grid_structure.rows").value(3))
+                .andExpect(jsonPath("$.grid_structure.columns").value(5))
+                .andExpect(jsonPath("$.grid_structure.total_products").value(15))
+                .andExpect(jsonPath("$.row1.1.number").exists())
+                .andExpect(jsonPath("$.row1.1.confidence").exists());
     }
 }

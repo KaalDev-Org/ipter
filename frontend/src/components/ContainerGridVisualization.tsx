@@ -2,14 +2,16 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
-import { ContainerNumber, GridStructure } from '../services/api';
+import { ContainerNumber, GridStructure, GeminiExtractionResponse } from '../services/api';
 
 interface ContainerGridVisualizationProps {
   imageUrl: string;
   imageName: string;
-  containerNumbers: ContainerNumber[];
-  extractedText: string;
-  confidence: number;
+  extractionResult?: GeminiExtractionResponse; // New grid-based response
+  // Legacy props for backward compatibility
+  containerNumbers?: ContainerNumber[];
+  extractedText?: string;
+  confidence?: number;
   gridStructure?: GridStructure;
   editable?: boolean;
   onSerialNumberChange?: (row: number, position: number, value: string) => void;
@@ -32,9 +34,11 @@ interface EditableGridCell {
 const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
   imageUrl,
   imageName,
-  containerNumbers,
-  extractedText,
-  confidence,
+  extractionResult,
+  // Legacy props for backward compatibility
+  containerNumbers = [],
+  extractedText = '',
+  confidence = 0,
   gridStructure,
   editable = false,
   onSerialNumberChange
@@ -44,59 +48,47 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
   const [magnifierOffset, setMagnifierOffset] = useState({ x: 0, y: 0 });
   const [editableGrid, setEditableGrid] = useState<EditableGridCell[][]>([]);
   const imageRef = useRef<HTMLImageElement>(null);
-  // Build editable grid structure from AI extraction and grid structure
-  const buildEditableGrid = useCallback((): EditableGridCell[][] => {
-    // Use explicit grid structure if available, otherwise parse from extracted text
-    let rows = 0;
-    let columns = 0;
 
-    if (gridStructure) {
-      rows = gridStructure.rows;
-      columns = gridStructure.columns;
-    } else {
-      // Fallback to parsing extracted text
-      const gridPositions = parseGridStructure();
-      rows = Math.max(...gridPositions.map(p => p.row), 0);
-      columns = Math.max(...gridPositions.map(p => p.position), 0);
+  // Parse new grid-based response format
+  const parseNewGridFormat = useCallback((): GridPosition[] => {
+    if (!extractionResult?.grid_structure) return [];
+
+    const gridPositions: GridPosition[] = [];
+    const { rows, columns } = extractionResult.grid_structure;
+
+    // Parse each row
+    for (let rowNum = 1; rowNum <= rows; rowNum++) {
+      const rowKey = `row${rowNum}`;
+      const rowData = extractionResult[rowKey];
+
+      if (rowData) {
+        // Parse each position in the row
+        for (let colNum = 1; colNum <= columns; colNum++) {
+          const positionData = rowData[colNum.toString()];
+          if (positionData) {
+            // Create a ContainerNumber-like object for compatibility
+            const container: ContainerNumber = {
+              number: positionData.number,
+              confidence: parseFloat(positionData.confidence.replace('%', '')),
+              bounding_box: null,
+              validation_status: 'VALID'
+            };
+
+            gridPositions.push({
+              row: rowNum,
+              position: colNum,
+              container
+            });
+          }
+        }
+      }
     }
 
-    // Initialize empty grid
-    const grid: EditableGridCell[][] = [];
-    for (let r = 0; r < rows; r++) {
-      const row: EditableGridCell[] = [];
-      for (let c = 0; c < columns; c++) {
-        row.push({
-          row: r + 1,
-          position: c + 1,
-          serialNumber: '',
-          confidence: 0,
-          isOriginal: false
-        });
-      }
-      grid.push(row);
-    }
-
-    // Populate with AI-extracted data
-    const gridPositions = parseGridStructure();
-    gridPositions.forEach(pos => {
-      const rowIndex = pos.row - 1;
-      const colIndex = pos.position - 1;
-      if (rowIndex >= 0 && rowIndex < rows && colIndex >= 0 && colIndex < columns) {
-        grid[rowIndex][colIndex] = {
-          row: pos.row,
-          position: pos.position,
-          serialNumber: pos.container.number,
-          confidence: pos.container.confidence,
-          isOriginal: true
-        };
-      }
-    });
-
-    return grid;
-  }, [gridStructure, containerNumbers, extractedText]);
+    return gridPositions;
+  }, [extractionResult]);
 
   // Parse the extracted text to determine grid structure (fallback method)
-  const parseGridStructure = (): GridPosition[] => {
+  const parseGridStructure = useCallback((): GridPosition[] => {
     const gridPositions: GridPosition[] = [];
     const lines = extractedText.split('\n').filter(line => line.trim());
 
@@ -150,7 +142,52 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
     });
 
     return gridPositions;
-  };
+  }, [extractedText, containerNumbers]);
+
+  // Build editable grid structure from AI extraction and grid structure
+  const buildEditableGrid = useCallback((): EditableGridCell[][] => {
+    // Use new grid format if available, otherwise fall back to legacy parsing
+    const gridPositions = extractionResult ? parseNewGridFormat() : parseGridStructure();
+
+    // Calculate actual dimensions from the data
+    const rows = Math.max(...gridPositions.map(p => p.row), 0);
+    const columns = Math.max(...gridPositions.map(p => p.position), 0);
+
+    console.log(`Building grid: ${rows} rows × ${columns} columns from ${gridPositions.length} positions`);
+
+    // Initialize empty grid
+    const grid: EditableGridCell[][] = [];
+    for (let r = 0; r < rows; r++) {
+      const row: EditableGridCell[] = [];
+      for (let c = 0; c < columns; c++) {
+        row.push({
+          row: r + 1,
+          position: c + 1,
+          serialNumber: '',
+          confidence: 0,
+          isOriginal: false
+        });
+      }
+      grid.push(row);
+    }
+
+    // Populate with AI-extracted data
+    gridPositions.forEach(pos => {
+      const rowIndex = pos.row - 1;
+      const colIndex = pos.position - 1;
+      if (rowIndex >= 0 && rowIndex < rows && colIndex >= 0 && colIndex < columns) {
+        grid[rowIndex][colIndex] = {
+          row: pos.row,
+          position: pos.position,
+          serialNumber: pos.container.number,
+          confidence: pos.container.confidence,
+          isOriginal: true
+        };
+      }
+    });
+
+    return grid;
+  }, [extractionResult, gridStructure, containerNumbers, extractedText, parseNewGridFormat, parseGridStructure]);
 
   // Initialize editable grid when data changes
   React.useEffect(() => {
@@ -377,7 +414,9 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
               <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
               <h3 className="text-base font-semibold text-gray-900">Original Image</h3>
               <Badge variant="outline" className="text-xs">
-                {containerNumbers.length} containers detected
+                {extractionResult ?
+                  extractionResult.grid_structure?.total_products || 0 :
+                  containerNumbers.length} containers detected
               </Badge>
             </div>
             <div className="relative bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">

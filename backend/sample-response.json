@@ -1,0 +1,33 @@
+{
+  "imageId": "550e8400-e29b-41d4-a716-446655440000",
+  "projectId": "550e8400-e29b-41d4-a716-446655440001",
+  "imageName": "container-image.jpg",
+  "uploadedAt": "2025-09-13T00:30:00",
+  "success": true,
+  "grid_structure": {
+    "rows": 3,
+    "columns": 5,
+    "total_products": 15
+  },
+  "row1": {
+    "1": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "2": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "3": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "4": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "5": { "number": "BGB-43395, 200 mg", "confidence": "95%" }
+  },
+  "row2": {
+    "1": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "2": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "3": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "4": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "5": { "number": "BGB-43395, 200 mg", "confidence": "95%" }
+  },
+  "row3": {
+    "1": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "2": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "3": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "4": { "number": "BGB-43395, 200 mg", "confidence": "95%" },
+    "5": { "number": "BGB-43395, 200 mg", "confidence": "95%" }
+  }
+}
