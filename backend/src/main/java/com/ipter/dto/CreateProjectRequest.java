@@ -49,7 +49,10 @@ public class CreateProjectRequest {
     
     @Size(max = 1000, message = "Remarks cannot exceed 1000 characters")
     private String remarks;
-    
+
+    @Size(max = 50, message = "Example container number cannot exceed 50 characters")
+    private String exampleContainerNumber;
+
     // Constructors
     public CreateProjectRequest() {}
     
@@ -92,4 +95,7 @@ public class CreateProjectRequest {
     
     public String getRemarks() { return remarks; }
     public void setRemarks(String remarks) { this.remarks = remarks; }
+
+    public String getExampleContainerNumber() { return exampleContainerNumber; }
+    public void setExampleContainerNumber(String exampleContainerNumber) { this.exampleContainerNumber = exampleContainerNumber; }
 }

@@ -14,7 +14,7 @@ public class AuditLogReviewResponse {
     private UUID auditLogId;
     private String action;
     private String entityType;
-    private UUID entityId;
+    private String entityId;
     private String details;
     private String performedByUsername;
     private LocalDateTime timestamp;
@@ -62,8 +62,8 @@ public class AuditLogReviewResponse {
     public String getEntityType() { return entityType; }
     public void setEntityType(String entityType) { this.entityType = entityType; }
 
-    public UUID getEntityId() { return entityId; }
-    public void setEntityId(UUID entityId) { this.entityId = entityId; }
+    public String getEntityId() { return entityId; }
+    public void setEntityId(String entityId) { this.entityId = entityId; }
 
     public String getDetails() { return details; }
     public void setDetails(String details) { this.details = details; }

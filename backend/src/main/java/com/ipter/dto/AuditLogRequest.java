@@ -3,8 +3,6 @@ package com.ipter.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
-
 /**
  * DTO for creating audit log entries from frontend
  */
@@ -17,7 +15,7 @@ public class AuditLogRequest {
     @Size(max = 100, message = "Entity type cannot exceed 100 characters")
     private String entityType;
     
-    private UUID entityId;
+    private String entityId;
     
     @Size(max = 2000, message = "Details cannot exceed 2000 characters")
     private String details;
@@ -31,7 +29,7 @@ public class AuditLogRequest {
     // Constructors
     public AuditLogRequest() {}
     
-    public AuditLogRequest(String action, String entityType, UUID entityId, String details) {
+    public AuditLogRequest(String action, String entityType, String entityId, String details) {
         this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
@@ -55,11 +53,11 @@ public class AuditLogRequest {
         this.entityType = entityType;
     }
     
-    public UUID getEntityId() {
+    public String getEntityId() {
         return entityId;
     }
-    
-    public void setEntityId(UUID entityId) {
+
+    public void setEntityId(String entityId) {
         this.entityId = entityId;
     }
     

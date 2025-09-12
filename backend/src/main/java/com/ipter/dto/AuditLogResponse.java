@@ -13,7 +13,7 @@ public class AuditLogResponse {
     private UUID id;
     private String action;
     private String entityType;
-    private UUID entityId;
+    private String entityId;
     private String details;
     private UserInfo performedBy;
     private LocalDateTime timestamp;
@@ -92,11 +92,11 @@ public class AuditLogResponse {
         this.entityType = entityType;
     }
     
-    public UUID getEntityId() {
+    public String getEntityId() {
         return entityId;
     }
-    
-    public void setEntityId(UUID entityId) {
+
+    public void setEntityId(String entityId) {
         this.entityId = entityId;
     }
     

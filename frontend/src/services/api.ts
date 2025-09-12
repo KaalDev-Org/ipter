@@ -460,6 +460,7 @@ export interface CreateProjectRequest {
   site?: string;
   invoiceDate?: string;
   remarks?: string;
+  exampleContainerNumber?: string;
 }
 
 export interface ProjectResponse {
@@ -760,15 +761,11 @@ export const projectAPI = {
   },
 
   // Extract containers using Gemini API
-  extractContainersGemini: async (projectId: string, imageFile: File, exampleNumber?: string): Promise<GeminiExtractionResponse> => {
+  extractContainersGemini: async (projectId: string, imageFile: File): Promise<GeminiExtractionResponse> => {
     const formData = new FormData();
     formData.append('file', imageFile);
     formData.append('projectId', projectId);
     formData.append('description', 'Container extraction from product image');
-
-    if (exampleNumber && exampleNumber.trim()) {
-      formData.append('exampleNumber', exampleNumber.trim());
-    }
 
     const response = await fetch(`${API_BASE_URL}/images/upload-and-extract`, {
       method: 'POST',
@@ -776,6 +773,23 @@ export const projectAPI = {
         'Authorization': `Bearer ${getValidToken()}`,
       },
       body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  // Verify an image
+  verifyImage: async (imageId: string, isVerified: boolean = true): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/images/${imageId}/verify?isVerified=${isVerified}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${getValidToken()}`,
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -1142,7 +1156,7 @@ export const auditAPI = {
   },
 
   // Get audit logs by review session
-  getAuditLogsByReviewSession: async (reviewSessionId: string): Promise<{ auditLogs: any[]; count: number }> => {
+  getAuditLogsByReviewSession: async (reviewSessionId: string): Promise<{ auditLogs?: any[]; reviewedLogs?: any[]; count: number }> => {
     // The request interceptor will handle the token
     const response = await api.get(`/audit/review-session/${reviewSessionId}/logs`);
     return response.data;

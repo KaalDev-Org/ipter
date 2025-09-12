@@ -39,7 +39,7 @@ public class AuditLog {
     @Size(max = 100, message = "Entity type cannot exceed 100 characters")
     private String entityType;
     
-    private UUID entityId;
+    private String entityId;
     
     @Size(max = 2000, message = "Details cannot exceed 2000 characters")
     private String details;
@@ -77,7 +77,7 @@ public class AuditLog {
     // Constructors
     public AuditLog() {}
     
-    public AuditLog(String action, String entityType, UUID entityId, String details, User performedBy) {
+    public AuditLog(String action, String entityType, String entityId, String details, User performedBy) {
         this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
@@ -111,11 +111,11 @@ public class AuditLog {
         this.entityType = entityType;
     }
     
-    public UUID getEntityId() {
+    public String getEntityId() {
         return entityId;
     }
-    
-    public void setEntityId(UUID entityId) {
+
+    public void setEntityId(String entityId) {
         this.entityId = entityId;
     }
     

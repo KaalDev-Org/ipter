@@ -44,7 +44,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     /**
      * Find audit logs by entity ID
      */
-    List<AuditLog> findByEntityId(UUID entityId);
+    List<AuditLog> findByEntityId(String entityId);
     
     /**
      * Find audit logs by date range

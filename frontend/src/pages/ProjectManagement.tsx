@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/toast';
 import { FolderOpen, Upload, FileText, Calendar, Package, Truck, FileCheck, X, CheckCircle } from 'lucide-react';
 import { projectAPI, CreateProjectRequest, authAPI, ProjectResponse } from '../services/api';
 import ProjectCreationDialog from '../components/ProjectCreationDialog';
+import { AuditLogger } from '../utils/auditLogger';
 
 interface ProjectFormData {
   name: string;
@@ -26,11 +27,12 @@ interface ProjectFormData {
   packageLot: string;
   protocol: string;
   site: string;
+  exampleContainerNumber: string;
 }
 
 const ProjectManagement: React.FC = () => {
-  const { showToast } = useToast();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -63,15 +65,45 @@ const ProjectManagement: React.FC = () => {
     }
   }, []);
 
-  // Load active projects on component mount
+  // Load active projects on component mount and log page view
   useEffect(() => {
     loadActiveProjects();
+
+    // Log page view
+    const logPageView = async () => {
+      try {
+        const currentUser = await authAPI.getCurrentUser();
+        if (currentUser?.username) {
+          await AuditLogger.logPageView(currentUser.username, 'Project Management', document.referrer || 'Direct');
+        }
+      } catch (error) {
+        console.warn('Failed to log page view:', error);
+      }
+    };
+
+    logPageView();
   }, [loadActiveProjects]);
 
   const onSubmit = async (data: ProjectFormData) => {
     // Prevent multiple submissions
     if (isExecuting) {
       return;
+    }
+
+    // Validate that PDF is uploaded (mandatory)
+    if (!uploadedFile) {
+      showToast("PDF file is required to create a project", "error");
+      return;
+    }
+
+    // Log form submission
+    const currentUser = await authAPI.getCurrentUser();
+    if (currentUser?.username) {
+      await AuditLogger.logFormSubmission(currentUser.username, 'Project Creation Form', 'Project Management', {
+        projectName: data.name,
+        shipper: data.shipper,
+        hasFile: !!uploadedFile
+      });
     }
 
     // Store form data for the dialog execution
@@ -100,6 +132,7 @@ const ProjectManagement: React.FC = () => {
         site: data.site,
         invoiceDate: data.invoiceDate,
         remarks: data.remarks,
+        exampleContainerNumber: data.exampleContainerNumber,
       };
 
       // Step 1: Create the project
@@ -109,6 +142,12 @@ const ProjectManagement: React.FC = () => {
       const projectCreationTime = Date.now() - startTime;
       const projectId = response.project.id;
 
+      // Log project creation
+      const currentUser = await authAPI.getCurrentUser();
+      if (currentUser?.username) {
+        await AuditLogger.logProjectCreation(data.name, projectId, currentUser.username);
+      }
+
       controller.completeStep(0, 'Project created successfully!', projectCreationTime);
 
       // Step 2: Process PDF if file was uploaded (using new combined API)
@@ -117,9 +156,20 @@ const ProjectManagement: React.FC = () => {
           controller.startStep(1, 'Uploading and processing PDF...');
           const pdfStartTime = Date.now();
 
+          // Log PDF upload start
+          if (currentUser?.username) {
+            await AuditLogger.logPDFUpload(data.name, projectId, uploadedFile.name, currentUser.username);
+            await AuditLogger.logPDFProcessingStart(data.name, projectId, uploadedFile.name, currentUser.username);
+          }
+
           // Use the new combined API for upload and processing
           const processResult = await projectAPI.uploadAndProcessPdf(projectId, uploadedFile, false);
           const pdfProcessingTime = Date.now() - pdfStartTime;
+
+          // Log PDF processing completion
+          if (currentUser?.username) {
+            await AuditLogger.logPDFProcessingComplete(data.name, projectId, uploadedFile.name, processResult.result.extractedCount || 0);
+          }
 
           controller.completeStep(1, 'PDF processed successfully!', pdfProcessingTime);
 
@@ -214,19 +264,40 @@ const ProjectManagement: React.FC = () => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       if (file.type === 'application/pdf') {
         setUploadedFile(file);
+
+        // Log file upload
+        try {
+          const currentUser = await authAPI.getCurrentUser();
+          if (currentUser?.username) {
+            await AuditLogger.logButtonClick(currentUser.username, 'Upload PDF File', 'Project Management', `File: ${file.name}`);
+          }
+        } catch (error) {
+          console.warn('Failed to log file upload:', error);
+        }
       } else {
         showToast('Please upload only PDF files.', 'error');
       }
     }
   };
 
-  const removeFile = () => {
+  const removeFile = async () => {
+    const fileName = uploadedFile?.name;
     setUploadedFile(null);
+
+    // Log file removal
+    try {
+      const currentUser = await authAPI.getCurrentUser();
+      if (currentUser?.username && fileName) {
+        await AuditLogger.logButtonClick(currentUser.username, 'Remove PDF File', 'Project Management', `File: ${fileName}`);
+      }
+    } catch (error) {
+      console.warn('Failed to log file removal:', error);
+    }
   };
 
   const handleDialogClose = () => {
@@ -297,9 +368,9 @@ const ProjectManagement: React.FC = () => {
                     </div>
                   </div>
                 </CardTitle>
-                <CardDescription className="text-gray-600 mt-3" style={{ fontFamily: 'Verdana, sans-serif' }}>
+                {/* <CardDescription className="text-gray-600 mt-3" style={{ fontFamily: 'Verdana, sans-serif' }}>
                   Fill in the project details below to create a new pharmaceutical shipment tracking project.
-                </CardDescription>
+                </CardDescription> */}
               </CardHeader>
               <CardContent className="p-6">
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -491,6 +562,22 @@ const ProjectManagement: React.FC = () => {
                         {...register('remarks')}
                         className="min-h-[100px]"
                       />
+                    </div>
+
+                    {/* Example Container Number - Optional field */}
+                    <div className="space-y-2">
+                      <Label htmlFor="exampleContainerNumber" className="text-sm font-medium text-gray-700">
+                        Example Container Number <span className="text-gray-500">(Optional)</span>
+                      </Label>
+                      <Input
+                        id="exampleContainerNumber"
+                        placeholder="e.g., ABC123456, XYZ789012"
+                        {...register('exampleContainerNumber')}
+                        className="h-9"
+                      />
+                      <p className="text-xs text-gray-500">
+                        Provide an example serial number format to help AI extract similar numbers more accurately from images
+                      </p>
                     </div>
 
                     {/* Beautiful File Upload Section */}

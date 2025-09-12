@@ -14,6 +14,7 @@ import {
 import { Button } from './ui/button';
 import ZuelligIcon from './ui/zuellig-icon';
 import ChangePasswordModal from './ChangePasswordModal';
+import { AuditLogger } from '../utils/auditLogger';
 
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -51,7 +52,18 @@ const Navbar: React.FC = () => {
 
   const handleLogout = async () => {
     try {
+      // Log logout attempt
+      if (user?.username) {
+        await AuditLogger.logDropdownAction(user.username, 'clicked logout');
+      }
+
       await logout();
+
+      // Log successful logout
+      if (user?.username) {
+        await AuditLogger.logUserLogout(user.username);
+      }
+
       navigate('/login');
     } catch (error) {
       console.error('Logout failed:', error);
@@ -166,7 +178,13 @@ const Navbar: React.FC = () => {
                   <Button
                     key={item.id}
                     variant="ghost"
-                    onClick={() => {
+                    onClick={async () => {
+                      // Log navigation click
+                      if (user?.username) {
+                        await AuditLogger.logNavbarClick(user.username, item.label);
+                        await AuditLogger.logNavigation(user.username, window.location.pathname, item.path, 'click');
+                      }
+
                       setActiveNav(item.id);
                       navigate(item.path);
                     }}
@@ -192,7 +210,16 @@ const Navbar: React.FC = () => {
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-z-sky/20 transition-all duration-200">
+                  <Button
+                    variant="ghost"
+                    className="relative h-10 w-10 rounded-full hover:ring-2 hover:ring-z-sky/20 transition-all duration-200"
+                    onClick={async () => {
+                      // Log dropdown menu open
+                      if (user?.username) {
+                        await AuditLogger.logDropdownAction(user.username, 'opened profile dropdown');
+                      }
+                    }}
+                  >
                     <Avatar className="h-10 w-10 ring-2 ring-white shadow-lg">
                       <AvatarImage src="" alt={user?.username} />
                       <AvatarFallback className="bg-z-sky text-slate-900 font-semibold text-sm">
@@ -227,14 +254,28 @@ const Navbar: React.FC = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-z-pale-green/20" />
                   <DropdownMenuItem
-                    onClick={() => navigate('/profile')}
+                    onClick={async () => {
+                      // Log profile navigation
+                      if (user?.username) {
+                        await AuditLogger.logDropdownAction(user.username, 'clicked', 'View Profile');
+                        await AuditLogger.logNavigation(user.username, window.location.pathname, '/profile', 'click');
+                      }
+                      navigate('/profile');
+                    }}
                     className="hover:bg-z-sky/10 transition-colors cursor-pointer p-3"
                   >
                     <User className="mr-3 h-4 w-4 text-slate-600" />
                     <span className="font-medium">View Profile</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => setShowChangePasswordModal(true)}
+                    onClick={async () => {
+                      // Log change password modal open
+                      if (user?.username) {
+                        await AuditLogger.logDropdownAction(user.username, 'clicked', 'Change Password');
+                        await AuditLogger.logDialogAction(user.username, 'Change Password Modal', 'opened');
+                      }
+                      setShowChangePasswordModal(true);
+                    }}
                     className="hover:bg-z-sky/10 transition-colors cursor-pointer p-3"
                   >
                     <Key className="mr-3 h-4 w-4 text-slate-600" />

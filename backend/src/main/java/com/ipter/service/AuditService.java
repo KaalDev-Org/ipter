@@ -1,6 +1,7 @@
 package com.ipter.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -118,7 +119,7 @@ public class AuditService {
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLogResponse> getAuditLogsForEntity(java.util.UUID entityId) {
+    public List<AuditLogResponse> getAuditLogsForEntity(String entityId) {
         List<AuditLog> auditLogs = auditLogRepository.findByEntityId(entityId);
         return auditLogs.stream()
                 .map(AuditLogResponse::new)
@@ -220,13 +221,13 @@ public class AuditService {
             List.of(ReviewStatus.APPROVED, ReviewStatus.REJECTED, ReviewStatus.FLAGGED, ReviewStatus.REVIEWED)
         );
 
-        // Group by reviewer and review date (day)
+        // Group by reviewer and review session (rounded to nearest minute to group bulk reviews together)
         Map<String, Map<LocalDateTime, List<AuditLog>>> groupedSessions = reviewedLogs.stream()
             .filter(log -> log.getReviewedBy() != null && log.getReviewedAt() != null)
             .collect(Collectors.groupingBy(
                 log -> log.getReviewedBy().getUsername(),
                 Collectors.groupingBy(
-                    log -> log.getReviewedAt().toLocalDate().atStartOfDay()
+                    log -> log.getReviewedAt().withSecond(0).withNano(0) // Round to nearest minute
                 )
             ));
 
@@ -244,18 +245,12 @@ public class AuditService {
                     .max(LocalDateTime::compareTo)
                     .orElse(sessionDate);
 
-                // Create session summary
-                Map<ReviewStatus, Long> statusCounts = sessionLogs.stream()
-                    .collect(Collectors.groupingBy(AuditLog::getReviewStatus, Collectors.counting()));
-
-                String sessionComments = String.format(
-                    "Reviewed %d logs: %d approved, %d rejected, %d flagged, %d reviewed",
-                    sessionLogs.size(),
-                    statusCounts.getOrDefault(ReviewStatus.APPROVED, 0L),
-                    statusCounts.getOrDefault(ReviewStatus.REJECTED, 0L),
-                    statusCounts.getOrDefault(ReviewStatus.FLAGGED, 0L),
-                    statusCounts.getOrDefault(ReviewStatus.REVIEWED, 0L)
-                );
+                // Use the actual review comments from the logs (they should all be the same in a bulk review)
+                String sessionComments = sessionLogs.stream()
+                    .map(AuditLog::getReviewComments)
+                    .filter(comment -> comment != null && !comment.trim().isEmpty())
+                    .findFirst()
+                    .orElse("No comment provided");
 
                 // Create detailed log info for each reviewed log
                 List<ReviewSessionResponse.ReviewedLogInfo> reviewedLogInfos = sessionLogs.stream()
@@ -286,6 +281,50 @@ public class AuditService {
         sessions.sort((s1, s2) -> s2.getReviewedAt().compareTo(s1.getReviewedAt()));
 
         return sessions;
+    }
+
+    /**
+     * Get audit logs by review session ID
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
+    @Transactional(readOnly = true)
+    public Map<String, Object> getAuditLogsByReviewSession(String reviewSessionId) {
+        // Since we generate session IDs dynamically, we need to find the session first
+        List<ReviewSessionResponse> allSessions = getAllReviewSessions(null);
+
+        ReviewSessionResponse targetSession = allSessions.stream()
+            .filter(session -> session.getId().toString().equals(reviewSessionId))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Review session not found with ID: " + reviewSessionId));
+
+        // Convert the reviewed logs to the format expected by frontend
+        List<AuditLogReviewResponse> auditLogResponses = targetSession.getReviewedLogs().stream()
+            .map(reviewedLog -> {
+                // Find the actual audit log to get complete information
+                AuditLog actualLog = auditLogRepository.findById(reviewedLog.getLogId())
+                    .orElse(null);
+
+                if (actualLog != null) {
+                    return new AuditLogReviewResponse(actualLog);
+                } else {
+                    // Fallback: create response from limited info
+                    AuditLogReviewResponse response = new AuditLogReviewResponse();
+                    response.setAuditLogId(reviewedLog.getLogId());
+                    response.setAction(reviewedLog.getAction());
+                    response.setEntityType(reviewedLog.getEntityType());
+                    response.setDetails(reviewedLog.getDetails());
+                    response.setTimestamp(reviewedLog.getTimestamp());
+                    response.setReviewStatus(reviewedLog.getReviewStatus());
+                    return response;
+                }
+            })
+            .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("auditLogs", auditLogResponses);
+        response.put("count", auditLogResponses.size());
+
+        return response;
     }
 
     /**

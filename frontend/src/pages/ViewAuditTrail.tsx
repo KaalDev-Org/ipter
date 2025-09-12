@@ -22,6 +22,17 @@ interface ReviewSession {
   reviewedAt: string;
   reviewComments: string;
   reviewedLogsCount: number;
+  reviewedLogs?: Array<{
+    logId: string;
+    action: string;
+    details: string;
+    entityType: string;
+    timestamp: string;
+    reviewStatus: string;
+    ipAddress?: string;
+    userAgent?: string;
+    entityId?: string;
+  }>;
 }
 
 const ViewAuditTrail: React.FC = () => {
@@ -48,10 +59,10 @@ const ViewAuditTrail: React.FC = () => {
         action: reviewLog.action,
         entityType: reviewLog.entityType,
         entityId: reviewLog.entityId,
-        details: reviewLog.details,
+        details: cleanLogDetails(reviewLog.details || ''),
         performedBy: {
           id: 'unknown',
-          username: reviewLog.performedByUsername || 'Unknown',
+          username: extractUsername(reviewLog.details || ''),
           email: 'unknown@example.com'
         },
         timestamp: reviewLog.timestamp,
@@ -84,6 +95,7 @@ const ViewAuditTrail: React.FC = () => {
       console.log('Fetching review sessions...');
       const sessions = await auditAPI.getAllReviewSessions();
       console.log('Review sessions fetched:', sessions);
+      console.log('First session structure:', sessions[0]);
       setReviewSessions(sessions);
     } catch (error: any) {
       console.error('Error fetching review sessions:', error);
@@ -95,16 +107,19 @@ const ViewAuditTrail: React.FC = () => {
     try {
       setLoading(true);
       const response = await auditAPI.getAuditLogsByReviewSession(sessionId);
-      
-      const logsData = response.auditLogs.map((reviewLog: any) => ({
-        id: reviewLog.auditLogId,
+
+      // Handle the actual response format from backend
+      const reviewedLogs = response.auditLogs || response.reviewedLogs || [];
+
+      const logsData = reviewedLogs.map((reviewLog: any) => ({
+        id: reviewLog.auditLogId || reviewLog.logId,
         action: reviewLog.action,
         entityType: reviewLog.entityType,
         entityId: reviewLog.entityId,
-        details: reviewLog.details,
+        details: cleanLogDetails(reviewLog.details || ''),
         performedBy: {
           id: 'unknown',
-          username: reviewLog.performedByUsername || 'Unknown',
+          username: extractUsername(reviewLog.details || ''),
           email: 'unknown@example.com'
         },
         timestamp: reviewLog.timestamp,
@@ -120,9 +135,13 @@ const ViewAuditTrail: React.FC = () => {
         reviewComments: reviewLog.reviewComments
       }));
 
+      console.log('Session logs fetched:', logsData);
       setSessionLogs(logsData);
     } catch (error: any) {
       console.error('Error fetching session logs:', error);
+      if (error.response?.status === 401) {
+        console.error('401 Unauthorized - token may be expired or endpoint not accessible');
+      }
     } finally {
       setLoading(false);
     }
@@ -183,11 +202,85 @@ const ViewAuditTrail: React.FC = () => {
     return new Date(timestamp).toLocaleString();
   };
 
+  // Extract username from log details
+  const extractUsername = (details: string): string => {
+    const match = details.match(/User '([^']+)'/);
+    return match ? match[1] : 'Unknown';
+  };
+
+  // Clean up log details by removing machine info and extracting main action
+  const cleanLogDetails = (details: string): string => {
+    if (!details) return '';
+
+    // Remove machine info part
+    const cleanDetails = details.split('Machine info:')[0].trim();
+
+    // For navigation, extract just the navigation part
+    if (cleanDetails.includes('navigated from')) {
+      const navMatch = cleanDetails.match(/navigated from '([^']+)' to '([^']+)'/);
+      if (navMatch) {
+        return `navigated from ${navMatch[1]} to ${navMatch[2]}`;
+      }
+    }
+
+    // For UI interactions, extract the action
+    if (cleanDetails.includes('clicked navbar item:')) {
+      const clickMatch = cleanDetails.match(/clicked navbar item: '([^']+)'/);
+      if (clickMatch) {
+        return `clicked navbar item: ${clickMatch[1]}`;
+      }
+    }
+
+    // For page views, extract the page
+    if (cleanDetails.includes('viewed page')) {
+      const pageMatch = cleanDetails.match(/viewed page '([^']+)'/);
+      if (pageMatch) {
+        return `viewed page ${pageMatch[1]}`;
+      }
+    }
+
+    // Remove "User 'username'" prefix if it exists and return the rest
+    const withoutUserPrefix = cleanDetails.replace(/^User '[^']+'\s*/, '');
+    return withoutUserPrefix || cleanDetails;
+  };
+
   // Handle session selection
   const handleSessionSelect = (session: ReviewSession) => {
     setSelectedSession(session);
     setReviewComment(session.reviewComments || ''); // Show the review comments for this session
-    fetchSessionLogs(session.id);
+
+    // If the session already has reviewedLogs, use them directly
+    if (session.reviewedLogs && session.reviewedLogs.length > 0) {
+      const logsData = session.reviewedLogs.map((reviewLog: any) => ({
+        id: reviewLog.logId,
+        action: reviewLog.action,
+        entityType: reviewLog.entityType,
+        entityId: reviewLog.entityId || 'unknown',
+        details: cleanLogDetails(reviewLog.details || ''),
+        performedBy: {
+          id: 'unknown',
+          username: extractUsername(reviewLog.details || ''),
+          email: 'unknown@example.com'
+        },
+        timestamp: reviewLog.timestamp,
+        ipAddress: reviewLog.ipAddress,
+        userAgent: reviewLog.userAgent,
+        reviewStatus: reviewLog.reviewStatus,
+        reviewedBy: {
+          id: 'unknown',
+          username: session.reviewer.username,
+          email: 'unknown@example.com'
+        },
+        reviewedAt: session.reviewedAt,
+        reviewComments: session.reviewComments
+      }));
+
+      console.log('Using session logs directly:', logsData);
+      setSessionLogs(logsData);
+    } else {
+      // Fallback to API call if logs not embedded
+      fetchSessionLogs(session.id);
+    }
   };
 
 
@@ -341,19 +434,19 @@ const ViewAuditTrail: React.FC = () => {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="p-0 bg-slate-800 min-h-96">
+              <CardContent className="p-0 bg-z-ivory min-h-96">
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
-                    <RefreshCw className="w-8 h-8 animate-spin text-green-400" />
-                    <span className="ml-2 text-green-400 font-mono">Loading audit logs...</span>
+                    <RefreshCw className="w-8 h-8 animate-spin text-green-600" />
+                    <span className="ml-2 text-green-600 font-verdana">Loading audit logs...</span>
                   </div>
                 ) : currentLogs.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12">
-                    <Terminal className="w-12 h-12 text-slate-400 mb-4" />
-                    <h3 className="text-lg font-semibold text-slate-300 mb-2 font-mono">
+                    <Terminal className="w-12 h-12 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-600 mb-2 font-verdana">
                       {isShowingPending ? 'No pending logs' : 'No logs in this session'}
                     </h3>
-                    <p className="text-slate-400 font-mono">
+                    <p className="text-gray-500 font-verdana">
                       {isShowingPending ? 'All logs have been reviewed' : 'Session contains no audit logs'}
                     </p>
                   </div>
@@ -361,39 +454,40 @@ const ViewAuditTrail: React.FC = () => {
                   <div>
                     {/* Show review comment for the session if available */}
                     {!isShowingPending && selectedSession && selectedSession.reviewComments && (
-                      <div className="p-4 bg-slate-700 border-b border-slate-600 border-l-4 border-cyan-400">
-                        <div className="text-xs text-cyan-300 mb-1 font-mono">Review Session Comment:</div>
-                        <div className="text-cyan-400 font-mono text-sm break-words">{selectedSession.reviewComments}</div>
+                      <div className="p-4 bg-z-light-green border-b border-gray-200 border-l-4 border-green-500">
+                        <div className="text-green-800 font-verdana text-sm">
+                          Comment: {selectedSession.reviewComments}, {selectedSession.reviewedLogsCount || currentLogs.length} logs reviewed
+                        </div>
                       </div>
                     )}
 
-                    <div className="divide-y divide-slate-600">
+                    <div className="divide-y divide-gray-200">
                     {currentLogs.map((log) => {
                       const timestamp = formatTimestamp(log.timestamp);
                       return (
-                        <div key={log.id} className="p-4 hover:bg-slate-700 transition-colors font-mono text-sm">
+                        <div key={log.id} className="p-4 hover:bg-z-light-green transition-colors font-verdana text-sm">
                           <div className="flex items-start space-x-4">
-                            <div className="text-green-400 font-bold min-w-0 flex-shrink-0">
+                            <div className="text-green-700 font-bold min-w-0 flex-shrink-0">
                               [{timestamp}]
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-white">
-                                <span className="text-blue-400">{log.performedBy?.username || 'Unknown'}</span>
-                                <span className="text-slate-300"> performed </span>
-                                <span className="text-yellow-400">{log.action}</span>
+                              <div className="text-gray-900">
+                                <span className="text-blue-700 font-semibold">{log.performedBy?.username || 'Unknown'}</span>
+                                <span className="text-gray-700"> performed </span>
+                                <span className="text-orange-600 font-semibold">{log.action}</span>
                                 {log.entityType && (
                                   <>
-                                    <span className="text-slate-300"> on </span>
-                                    <span className="text-purple-400">{log.entityType}</span>
+                                    <span className="text-gray-700"> on </span>
+                                    <span className="text-purple-600 font-semibold">{log.entityType}</span>
+                                  </>
+                                )}
+                                {log.details && (
+                                  <>
+                                    <span className="text-gray-700"> - </span>
+                                    <span className="text-gray-600">{log.details}</span>
                                   </>
                                 )}
                               </div>
-                              {log.details && (
-                                <div className="text-slate-400 mt-1 break-words">{log.details}</div>
-                              )}
-                              {log.ipAddress && (
-                                <div className="text-slate-500 text-xs mt-1">IP: {log.ipAddress}</div>
-                              )}
                             </div>
                           </div>
                         </div>

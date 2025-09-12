@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,12 +42,14 @@ import com.ipter.dto.SerialNumberUpdateResponse;
 import com.ipter.model.ExtractedData;
 import com.ipter.model.ExtractionType;
 import com.ipter.model.Image;
+import com.ipter.model.MasterData;
 import com.ipter.model.ProcessingStatus;
 import com.ipter.model.Project;
 import com.ipter.model.User;
 import com.ipter.model.ValidationStatus;
 import com.ipter.repository.ExtractedDataRepository;
 import com.ipter.repository.ImageRepository;
+import com.ipter.repository.MasterDataRepository;
 import com.ipter.repository.ProjectRepository;
 import com.ipter.repository.UserRepository;
 
@@ -70,7 +74,8 @@ public class ImageService {
     @Autowired
     private ExtractedDataRepository extractedDataRepository;
 
-
+    @Autowired
+    private MasterDataRepository masterDataRepository;
 
     @Autowired
     @Qualifier("aiServiceRestTemplate")
@@ -708,5 +713,37 @@ public class ImageService {
         response.setContainerNumbers(containerNumbers);
 
         return response;
+    }
+
+    /**
+     * Get random master data examples for a project to use as example numbers
+     */
+    @Transactional(readOnly = true)
+    public List<String> getRandomMasterDataExamples(UUID projectId, int count) {
+        try {
+            // Get the project first
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
+
+            // Get master data for the project
+            List<MasterData> masterDataList = masterDataRepository.findByProject(project);
+
+            if (masterDataList.isEmpty()) {
+                logger.warn("No master data found for project: {}", projectId);
+                return new ArrayList<>();
+            }
+
+            // Shuffle and take the requested count
+            Collections.shuffle(masterDataList);
+            return masterDataList.stream()
+                    .limit(count)
+                    .map(MasterData::getContainerNumber)
+                    .filter(containerNumber -> containerNumber != null && !containerNumber.trim().isEmpty())
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            logger.error("Error getting random master data examples for project {}: {}", projectId, e.getMessage());
+            return new ArrayList<>();
+        }
     }
 }

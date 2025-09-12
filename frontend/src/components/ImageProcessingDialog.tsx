@@ -1,24 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import {
   CheckCircle,
   Loader2,
   Package,
   Scan,
-  Brain,
   AlertCircle,
   AlertTriangle,
-  X,
   Eye,
   ChevronLeft,
   ChevronRight,
-  Upload,
-  Grid3X3,
-  Hash,
-  FileText
+  Grid3X3
 } from 'lucide-react';
 import { projectAPI, GeminiExtractionResponse, SerialNumberUpdate, SerialNumberUpdateRequest } from '../services/api';
 import { useToast } from './ui/toast';
@@ -97,6 +91,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
   const [result, setResult] = useState<ImageProcessingResult | null>(null);
   const [serialNumberChanges, setSerialNumberChanges] = useState<SerialNumberChanges>({});
   const [isCompletingVerification, setIsCompletingVerification] = useState(false);
+  const [isVerifyingImage, setIsVerifyingImage] = useState(false);
   const { showToast } = useToast();
   const hasExecutedRef = useRef(false);
 
@@ -247,6 +242,39 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
       showToast('Failed to save verification changes', 'error');
     } finally {
       setIsCompletingVerification(false);
+    }
+  };
+
+  // Handle image verification
+  const handleVerifyImage = async () => {
+    if (!completedImages.length || !completedImages[currentCarouselIndex]?.extractionResult?.data?.imageId) {
+      showToast('No image to verify', 'error');
+      return;
+    }
+
+    try {
+      setIsVerifyingImage(true);
+      const currentImage = completedImages[currentCarouselIndex];
+      const imageId = currentImage.extractionResult?.data?.imageId;
+
+      if (!imageId) {
+        showToast('Image ID not found', 'error');
+        return;
+      }
+
+      // Call the verification API
+      await projectAPI.verifyImage(imageId, true);
+
+      showToast('Image verified successfully!', 'success');
+
+      // Close the dialog after successful verification
+      onClose();
+
+    } catch (error: any) {
+      console.error('Error verifying image:', error);
+      showToast('Failed to verify image: ' + (error.message || 'Unknown error'), 'error');
+    } finally {
+      setIsVerifyingImage(false);
     }
   };
 
@@ -687,8 +715,6 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
             </Card>
           )}
 
-
-
           {/* Results Section */}
           {result && (
             <>
@@ -700,23 +726,23 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                     <span>AI Extraction Complete</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-2xl font-bold text-blue-600">{stats.processedImages}</p>
-                      <p className="text-sm text-gray-600">Images Processed</p>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-xl font-bold text-blue-600">{stats.processedImages}</p>
+                      <p className="text-xs text-gray-600">Images Processed</p>
                     </div>
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <p className="text-2xl font-bold text-green-600">{stats.totalContainers}</p>
-                      <p className="text-sm text-gray-600">Containers Found</p>
+                    <div className="bg-green-50 p-3 rounded-lg">
+                      <p className="text-xl font-bold text-green-600">{stats.totalContainers}</p>
+                      <p className="text-xs text-gray-600">Containers Found</p>
                     </div>
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <p className="text-2xl font-bold text-purple-600">{stats.avgConfidence}%</p>
-                      <p className="text-sm text-gray-600">Avg Confidence</p>
+                    <div className="bg-purple-50 p-3 rounded-lg">
+                      <p className="text-xl font-bold text-purple-600">{stats.avgConfidence}%</p>
+                      <p className="text-xs text-gray-600">Avg Confidence</p>
                     </div>
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <p className="text-2xl font-bold text-red-600">{stats.errorImages}</p>
-                      <p className="text-sm text-gray-600">Failed Images</p>
+                    <div className="bg-red-50 p-3 rounded-lg">
+                      <p className="text-xl font-bold text-red-600">{stats.errorImages}</p>
+                      <p className="text-xs text-gray-600">Failed Images</p>
                     </div>
                   </div>
                 </CardContent>
@@ -724,8 +750,8 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
 
               {/* Image Comparison Carousel */}
               {completedImages.length > 0 && (
-                <Card className="bg-white border border-gray-200 rounded-xl">
-                  <CardHeader className="border-b border-gray-200 bg-blue-50">
+                <Card className="border-green-200 bg-green-50 rounded-xl">
+                  <CardHeader className="border-b border-green-200 bg-green-100">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
                         <Eye className="w-5 h-5 text-blue-600" />
@@ -757,20 +783,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                   <CardContent className="p-6">
                     {completedImages[currentCarouselIndex] && (
                       <div className="space-y-6">
-                        {/* Image Info */}
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {completedImages[currentCarouselIndex].file.name}
-                          </h3>
-                          <div className="flex items-center space-x-2">
-                            <Badge className="bg-green-100 text-green-800">
-                              {completedImages[currentCarouselIndex].extractionResult?.data?.containerNumbers?.length || 0} containers
-                            </Badge>
-                            <Badge className={`${getConfidenceColor(completedImages[currentCarouselIndex].extractionResult?.data?.confidence || 0)}`}>
-                              {Math.round(completedImages[currentCarouselIndex].extractionResult?.data?.confidence || 0)}% confidence
-                            </Badge>
-                          </div>
-                        </div>
+
 
                         {/* Container Grid Visualization */}
                         <ContainerGridVisualization
@@ -806,33 +819,23 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
 
               {/* Action Buttons */}
               <div className="flex justify-center space-x-3">
-                <div className="text-xs text-gray-500 mb-2 w-full text-center">
-                  🔍 Debug: result exists, showing first Complete Verification button
-                </div>
                 <Button variant="outline" onClick={onClose}>
                   Close
                 </Button>
                 <Button
-                  onClick={handleCompleteVerification}
-                  disabled={isCompletingVerification}
+                  onClick={handleVerifyImage}
+                  disabled={isVerifyingImage}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {isCompletingVerification ? (
+                  {isVerifyingImage ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
+                      Completing...
                     </>
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4 mr-2" />
                       Complete Verification
-                      {Object.keys(serialNumberChanges).length > 0 && (
-                        <span className="ml-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold">
-                          {Object.values(serialNumberChanges).reduce((total, changes) =>
-                            total + Object.keys(changes).length, 0
-                          )} changes
-                        </span>
-                      )}
                     </>
                   )}
                 </Button>
@@ -843,33 +846,24 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
           {/* Cancel Button for Processing */}
           {!result && (
             <div className="flex justify-end space-x-3">
-              <div className="text-xs text-gray-500 mb-2 w-full text-center">
-                🔍 Debug: no result, showing second Complete Verification button
-              </div>
               <Button variant="outline" onClick={onClose} disabled={steps[currentStep]?.status === 'processing'}>
                 Cancel
               </Button>
               {steps[currentStep]?.status === 'completed' && (
                 <Button
-                  onClick={handleCompleteVerification}
-                  disabled={isCompletingVerification}
+                  onClick={handleVerifyImage}
+                  disabled={isVerifyingImage}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {isCompletingVerification ? (
+                  {isVerifyingImage ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
+                      Completing...
                     </>
                   ) : (
                     <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
                       Complete Verification
-                      {Object.keys(serialNumberChanges).length > 0 && (
-                        <span className="ml-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold">
-                          {Object.values(serialNumberChanges).reduce((total, changes) =>
-                            total + Object.keys(changes).length, 0
-                          )} changes
-                        </span>
-                      )}
                     </>
                   )}
                 </Button>

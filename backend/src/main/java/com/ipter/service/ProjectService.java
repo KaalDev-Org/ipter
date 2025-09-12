@@ -87,6 +87,7 @@ public class ProjectService {
         project.setSite(request.getSite());
         project.setInvoiceDate(request.getInvoiceDate());
         project.setRemarks(request.getRemarks());
+        project.setExampleContainerNumber(request.getExampleContainerNumber());
         project.setCreatedBy(currentUser);
         project.setStatus(ProjectStatus.ACTIVE);
         project.setCreatedAt(LocalDateTime.now());

@@ -284,24 +284,30 @@ public class ImageController {
     public ResponseEntity<?> uploadAndExtract(
             @RequestParam("file") MultipartFile file,
             @RequestParam("projectId") UUID projectId,
-            @RequestParam(value = "description", required = false) String description,
-            @RequestParam(value = "exampleNumber", required = false) String exampleNumber) {
+            @RequestParam(value = "description", required = false) String description) {
         try {
-            logger.info("Upload-and-extract for: {} (Project: {}) with example: {}", file.getOriginalFilename(), projectId, exampleNumber);
+            logger.info("Upload-and-extract for: {} (Project: {})", file.getOriginalFilename(), projectId);
 
             // Reuse upload image logic but force immediate processing disabled (we'll do inline)
             ImageUploadRequest uploadRequest = new ImageUploadRequest(projectId, description, false);
             ImageUploadResponse uploadResp = imageService.uploadImage(file, uploadRequest);
 
-            // Determine the example number to use - either from request parameter or from project
-            String effectiveExampleNumber = exampleNumber;
-            if (effectiveExampleNumber == null || effectiveExampleNumber.trim().isEmpty()) {
-                try {
-                    ProjectResponse project = projectService.getProjectById(projectId);
-                    effectiveExampleNumber = project.getExampleContainerNumber();
-                } catch (Exception e) {
-                    logger.warn("Could not retrieve project example number: {}", e.getMessage());
+            // Determine the example number to use - from project or from master data
+            String effectiveExampleNumber = null;
+            try {
+                ProjectResponse project = projectService.getProjectById(projectId);
+                effectiveExampleNumber = project.getExampleContainerNumber();
+
+                // If no example number in project, get 3 random examples from master data
+                if (effectiveExampleNumber == null || effectiveExampleNumber.trim().isEmpty()) {
+                    List<String> masterDataExamples = imageService.getRandomMasterDataExamples(projectId, 3);
+                    if (!masterDataExamples.isEmpty()) {
+                        effectiveExampleNumber = String.join(", ", masterDataExamples);
+                        logger.info("Using master data examples for project {}: {}", projectId, effectiveExampleNumber);
+                    }
                 }
+            } catch (Exception e) {
+                logger.warn("Could not retrieve project example number or master data: {}", e.getMessage());
             }
 
             // Load image entity and process inline with example number
@@ -402,7 +408,7 @@ public class ImageController {
      * Update image verification status
      */
     @PutMapping("/{imageId}/verify")
-    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('REVIEWER')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('REVIEWER') or hasRole('USER')")
     public ResponseEntity<?> updateImageVerificationStatus(
             @PathVariable UUID imageId,
             @RequestParam boolean isVerified) {

@@ -28,8 +28,11 @@ import {
   X
 } from 'lucide-react';
 import { projectAPI, ProjectResponse, ProjectStatus, MasterDataResponse, VerificationStatusResponse, ProjectViewDataResponse } from '../services/api';
+import { AuditLogger } from '../utils/auditLogger';
+import { useAuth } from '../contexts/AuthContext';
 
 const ProjectData: React.FC = () => {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const [searchParams] = useSearchParams();
   const [activeProjects, setActiveProjects] = useState<ProjectResponse[]>([]);
@@ -62,10 +65,15 @@ const ProjectData: React.FC = () => {
     }
   }, [showToast]);
 
-  // Load active projects on component mount
+  // Load active projects on component mount and log page view
   useEffect(() => {
     loadActiveProjects();
-  }, [loadActiveProjects]);
+
+    // Log page view
+    if (user?.username) {
+      AuditLogger.logPageView(user.username, 'Project Data', document.referrer || 'Direct').catch(console.warn);
+    }
+  }, [loadActiveProjects, user?.username]);
 
   // Auto-select project from URL parameter
   useEffect(() => {
@@ -118,8 +126,16 @@ const ProjectData: React.FC = () => {
     }
   };
 
-  const handleProjectSelect = (projectId: string) => {
+  const handleProjectSelect = async (projectId: string) => {
     if (projectId) {
+      // Log project selection
+      if (user?.username) {
+        const project = activeProjects.find(p => p.id === projectId);
+        if (project) {
+          await AuditLogger.logButtonClick(user.username, 'Select Project', 'Project Data', `Project: ${project.name}`);
+        }
+      }
+
       loadProjectDetails(projectId);
       loadVerificationData(projectId);
       loadProjectViewData(projectId);
@@ -265,7 +281,13 @@ const ProjectData: React.FC = () => {
                 </Card>
 
                 {/* Tabbed Content */}
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <Tabs value={activeTab} onValueChange={async (newTab) => {
+                  // Log tab switch
+                  if (user?.username && selectedProject) {
+                    await AuditLogger.logTabSwitch(user.username, activeTab, newTab, 'Project Data');
+                  }
+                  setActiveTab(newTab);
+                }} className="w-full">
                   <TabsList className="grid w-full grid-cols-2 bg-z-pale-green">
                     <TabsTrigger value="details" className="data-[state=active]:bg-white data-[state=active]:text-gray-900">
                       <FileText className="w-4 h-4 mr-2" />
@@ -354,7 +376,13 @@ const ProjectData: React.FC = () => {
                           <p className="text-xs text-gray-500">Site</p>
                           <p className="text-sm font-medium">{selectedProject.site || 'Not specified'}</p>
                         </div>
-                        <div className="md:col-span-2">
+                        <div>
+                          <p className="text-xs text-gray-500">Example Container Number</p>
+                          <p className="text-sm font-medium font-mono bg-gray-50 px-2 py-1 rounded border">
+                            {selectedProject.exampleContainerNumber || 'Not provided'}
+                          </p>
+                        </div>
+                        <div>
                           <p className="text-xs text-gray-500">Remarks</p>
                           <p className="text-sm font-medium text-gray-700">
                             {selectedProject.remarks || 'No remarks provided'}
@@ -618,7 +646,7 @@ const ProjectData: React.FC = () => {
                                                   <div className="relative bg-gray-100 rounded-lg overflow-hidden h-96">
                                                     {image.imageUrl ? (
                                                       <img
-                                                        src={image.imageUrl}
+                                                        src={`http://localhost:8080${image.imageUrl}`}
                                                         alt={image.imageName}
                                                         className="w-full h-full object-contain"
                                                         onError={(e) => {
@@ -912,12 +940,6 @@ const ProjectData: React.FC = () => {
                                                 </div>
                                                 <div>
                                                   <div className="font-mono font-semibold text-gray-900 text-sm">{item.serial}</div>
-                                                  <div className="text-xs text-gray-500">
-                                                    {item.totalVerified > 0
-                                                      ? `${item.totalVerified} image${item.totalVerified > 1 ? 's' : ''}`
-                                                      : 'Not verified'
-                                                    }
-                                                  </div>
                                                 </div>
                                               </div>
 
@@ -925,23 +947,17 @@ const ProjectData: React.FC = () => {
                                               {item.verifications.map((verification, colIndex) => (
                                                 <div key={verification.imageId} className="flex items-center justify-center">
                                                   {verification.isVerified ? (
-                                                    <div className={`w-full h-10 rounded-lg border flex flex-col items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer ${
+                                                    <div className={`w-full h-10 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer ${
                                                       verification.confidence >= 90
                                                         ? 'border-green-400 bg-green-50 hover:border-green-500'
                                                         : verification.confidence >= 80
                                                           ? 'border-orange-400 bg-orange-50 hover:border-orange-500'
                                                           : 'border-red-400 bg-red-50 hover:border-red-500'
                                                     }`}>
-                                                      <CheckCircle className={`w-3 h-3 mb-1 ${
+                                                      <CheckCircle className={`w-4 h-4 ${
                                                         verification.confidence >= 90 ? 'text-green-600' :
                                                         verification.confidence >= 80 ? 'text-orange-500' : 'text-red-600'
                                                       }`} />
-                                                      <span className={`text-xs font-bold ${
-                                                        verification.confidence >= 90 ? 'text-green-800' :
-                                                        verification.confidence >= 80 ? 'text-orange-800' : 'text-red-800'
-                                                      }`}>
-                                                        {Math.round(verification.confidence)}%
-                                                      </span>
                                                     </div>
                                                   ) : (
                                                     <div className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center">

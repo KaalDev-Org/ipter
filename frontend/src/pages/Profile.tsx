@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { User, Mail, Calendar, Shield, Clock, MapPin, Building, Key, Settings, Activity, CheckCircle, AlertCircle, Eye, FolderOpen, FileText } from 'lucide-react';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import { AuditLogger } from '../utils/auditLogger';
 
 interface UserProfile {
   id: string;
@@ -44,6 +45,11 @@ const Profile: React.FC = () => {
           createdAt: profileResponse.createdAt || '',
           mustChangePassword: (profileResponse as any).mustChangePassword ?? false
         });
+
+        // Log page view
+        if (profileResponse?.username) {
+          await AuditLogger.logPageView(profileResponse.username, 'Profile', document.referrer || 'Direct');
+        }
 
         // Fetch session info
         const sessionResponse = await authAPI.getSessionInfo();
@@ -303,7 +309,14 @@ const Profile: React.FC = () => {
               </CardHeader>
               <CardContent className="p-6 space-y-4">
                 <Button
-                  onClick={() => setShowChangePasswordModal(true)}
+                  onClick={async () => {
+                    // Log change password modal open
+                    if (userProfile?.username) {
+                      await AuditLogger.logButtonClick(userProfile.username, 'Change Password', 'Profile');
+                      await AuditLogger.logDialogAction(userProfile.username, 'Change Password Modal', 'opened');
+                    }
+                    setShowChangePasswordModal(true);
+                  }}
                   className="w-full bg-slate-600 hover:bg-slate-700 text-white"
                 >
                   <Key className="mr-2 h-4 w-4" />
@@ -349,8 +362,19 @@ const Profile: React.FC = () => {
         {/* Change Password Modal */}
         <ChangePasswordModal
           isOpen={showChangePasswordModal}
-          onClose={() => setShowChangePasswordModal(false)}
-          onSuccess={() => {
+          onClose={async () => {
+            // Log modal close
+            if (userProfile?.username) {
+              await AuditLogger.logDialogAction(userProfile.username, 'Change Password Modal', 'closed');
+            }
+            setShowChangePasswordModal(false);
+          }}
+          onSuccess={async () => {
+            // Log successful password change
+            if (userProfile?.username) {
+              await AuditLogger.logPasswordChange(userProfile.username, userProfile.username, false);
+              await AuditLogger.logDialogAction(userProfile.username, 'Change Password Modal', 'completed successfully');
+            }
             setShowChangePasswordModal(false);
             // Could add a toast notification here
           }}

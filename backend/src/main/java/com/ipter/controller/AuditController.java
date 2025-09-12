@@ -175,7 +175,7 @@ public class AuditController {
      */
     @GetMapping("/entity/{entityId}")
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
-    public ResponseEntity<?> getAuditLogsForEntity(@PathVariable UUID entityId) {
+    public ResponseEntity<?> getAuditLogsForEntity(@PathVariable String entityId) {
         try {
             List<AuditLogResponse> auditLogs = auditService.getAuditLogsForEntity(entityId);
             return ResponseEntity.ok(auditLogs);
@@ -230,6 +230,22 @@ public class AuditController {
             Map<String, Object> response = new HashMap<>();
             response.put("auditLogs", auditLogs);
             response.put("count", auditLogs.size());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Get audit logs by review session ID
+     */
+    @GetMapping("/review-session/{reviewSessionId}/logs")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
+    public ResponseEntity<?> getAuditLogsByReviewSession(@PathVariable String reviewSessionId) {
+        try {
+            Map<String, Object> response = auditService.getAuditLogsByReviewSession(reviewSessionId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             Map<String, String> error = new HashMap<>();
