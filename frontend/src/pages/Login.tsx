@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Eye, EyeOff, Lock, User, Loader2 } from 'lucide-react';
 import ZuelligLogo from '../components/ui/zuellig-logo';
 import ApiTest from '../components/ApiTest';
+import { AuditLogger } from '../utils/auditLogger';
 
 const loginSchema = z.object({
   username: z.string().min(1, 'Username is required'),
@@ -27,9 +28,16 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated and log page view
   useEffect(() => {
     console.log('Login useEffect - loading:', loading, 'isAuthenticated:', isAuthenticated);
+
+    // Log page view for unauthenticated users
+    if (!loading && !isAuthenticated) {
+      const referrer = document.referrer || 'Direct';
+      AuditLogger.logPageView('Anonymous', 'Login Page', referrer).catch(console.warn);
+    }
+
     if (!loading && isAuthenticated) {
       const from = (location.state as any)?.from?.pathname || '/user-management';
       console.log('Redirecting to:', from);
@@ -50,34 +58,53 @@ const Login: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
+    // Log login attempt
+    await AuditLogger.logFormSubmission(data.username, 'Login Form', 'Login Page', { username: data.username });
+
     try {
       console.log('Calling login function...');
       await login(data);
       console.log('Login function completed successfully');
+
+      // Log successful login with timezone
+      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      await AuditLogger.logUserLogin(data.username, timezone);
+
       // The useEffect will handle the redirect when isAuthenticated becomes true
     } catch (err: any) {
       console.error('Login error:', err);
 
       let errorMessage = 'Login failed. Please try again.';
+      let failureReason = 'Unknown error';
 
       if (!err.response) {
         // Network error or CORS issue
         if (err.code === 'ERR_NETWORK') {
           errorMessage = 'Unable to connect to server. Please ensure the backend is running on port 8080.';
+          failureReason = 'Network error - unable to connect to server';
         } else if (err.message?.includes('CORS')) {
           errorMessage = 'CORS error. Please check server configuration.';
+          failureReason = 'CORS configuration error';
         } else {
           errorMessage = 'Network error. Please check your connection and try again.';
+          failureReason = 'Network connectivity issue';
         }
       } else if (err.response.status === 401) {
         errorMessage = 'Invalid username or password.';
+        failureReason = 'Invalid credentials';
       } else if (err.response.status === 404) {
         errorMessage = 'Backend server not found. Please ensure the backend is running on port 8080.';
+        failureReason = 'Backend server not found';
       } else if (err.response.status === 500) {
         errorMessage = 'Server error. Please try again later.';
+        failureReason = 'Internal server error';
       } else {
         errorMessage = err.response?.data?.message || err.response?.data?.error || errorMessage;
+        failureReason = `HTTP ${err.response.status}: ${err.response?.data?.message || 'Server error'}`;
       }
+
+      // Log failed login attempt with detailed reason
+      await AuditLogger.logFailedLogin(data.username, failureReason);
 
       setError(errorMessage);
       setIsLoading(false);
@@ -172,7 +199,17 @@ const Login: React.FC = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={async () => {
+                      const newShowPassword = !showPassword;
+                      setShowPassword(newShowPassword);
+
+                      // Get username from form for audit logging
+                      const formData = new FormData(document.querySelector('form') as HTMLFormElement);
+                      const username = formData.get('username') as string || 'Unknown';
+
+                      // Log password visibility toggle
+                      await AuditLogger.logPasswordVisibilityToggle(username, newShowPassword);
+                    }}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

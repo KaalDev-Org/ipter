@@ -247,32 +247,32 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
 
     // Calculate the position for the magnifier (very close to cursor)
     // Ensure magnifier stays within viewport bounds
-    const magnifierWidth = 200;
-    const magnifierHeight = 200;
+    const magnifierWidth = 150;
+    const magnifierHeight = 150;
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    const offset = 5; // Very small offset for very close positioning
+    const offset = 10; // Small offset for close positioning
 
     let magnifierX = e.clientX + offset;
-    let magnifierY = e.clientY - magnifierHeight / 2; // Center vertically on cursor
+    let magnifierY = e.clientY + offset;
 
     // Adjust if magnifier would go off the right edge
-    if (magnifierX + magnifierWidth > viewportWidth - 5) {
+    if (magnifierX + magnifierWidth > viewportWidth - 10) {
       magnifierX = e.clientX - magnifierWidth - offset;
     }
 
-    // Adjust if magnifier would go off the top edge
-    if (magnifierY < 5) {
-      magnifierY = e.clientY + offset; // Position below cursor
+    // Adjust if magnifier would go off the bottom edge
+    if (magnifierY + magnifierHeight > viewportHeight - 10) {
+      magnifierY = e.clientY - magnifierHeight - offset;
     }
 
-    // Adjust if magnifier would go off the bottom edge
-    if (magnifierY + magnifierHeight > viewportHeight - 5) {
-      magnifierY = e.clientY - magnifierHeight - offset; // Position above cursor
+    // Adjust if magnifier would go off the top edge
+    if (magnifierY < 10) {
+      magnifierY = e.clientY + offset;
     }
 
     // Final check for left edge
-    if (magnifierX < 5) {
+    if (magnifierX < 10) {
       magnifierX = e.clientX + offset;
     }
 
@@ -345,7 +345,7 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
     }
 
     const totalProducts = containerNumbers.length;
-    gridStructureText = `${finalMaxRow} rows × ${finalMaxPosition} columns (${totalProducts} products detected)`;
+    gridStructureText = `${finalMaxRow}x${finalMaxPosition} Grid - ${totalProducts} Products`;
   }
 
   return (
@@ -362,7 +362,7 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Overall Confidence:</span>
             <Badge className={`${getConfidenceBadgeColor(confidence)} text-white`}>
-              {confidence}%
+              {confidence.toFixed(2)}%
             </Badge>
           </div>
         </div>
@@ -398,11 +398,11 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
                   style={{
                     left: magnifierPosition.x,
                     top: magnifierPosition.y,
-                    width: '200px',
-                    height: '200px',
+                    width: '150px',
+                    height: '150px',
                     backgroundImage: `url(${imageUrl})`,
                     backgroundSize: `${imageRef.current.naturalWidth * 3}px ${imageRef.current.naturalHeight * 3}px`,
-                    backgroundPosition: `-${magnifierOffset.x * 3 - 100}px -${magnifierOffset.y * 3 - 100}px`,
+                    backgroundPosition: `-${magnifierOffset.x * 3 - 75}px -${magnifierOffset.y * 3 - 75}px`,
                     backgroundRepeat: 'no-repeat'
                   }}
                 >
@@ -418,25 +418,26 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
             <div className="flex items-center space-x-2">
               <div className={`w-4 h-4 rounded-full ${editable ? 'bg-blue-500' : 'bg-green-500'}`}></div>
               <h3 className="text-base font-semibold text-gray-900">
-                {editable ? 'Editable Verification Grid' : 'AI Extraction Grid'}
+                {editable ? 'Editable Grid' : 'AI Extraction Grid'}
               </h3>
               <Badge variant="outline" className="text-xs">
                 {gridStructureText}
               </Badge>
-              {editable && (
-                <Badge className="bg-blue-100 text-blue-800 border-blue-200 text-xs">
-                  Editable
-                </Badge>
-              )}
             </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="space-y-3">
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <div className="space-y-1">
                 {finalGrid.map((row, rowIndex) => (
-                  <div key={rowIndex} className="flex items-center space-x-3">
-                    <div className="w-14 flex items-center justify-center text-xs font-medium text-gray-500 bg-gray-100 rounded px-2 py-1">
-                      Row {rowIndex + 1}
+                  <div key={rowIndex} className="flex items-center space-x-2">
+                    <div className="w-10 flex items-center justify-center text-xs font-medium text-gray-500 bg-gray-100 rounded px-1 py-1 flex-shrink-0">
+                      R{rowIndex + 1}
                     </div>
-                    <div className="flex-1 grid gap-2" style={{ gridTemplateColumns: `repeat(${finalMaxPosition}, minmax(80px, 1fr))` }}>
+                    <div className="flex-1">
+                      <div
+                        className="grid gap-1"
+                        style={{
+                          gridTemplateColumns: `repeat(${finalMaxPosition}, minmax(${finalMaxPosition > 8 ? '45px' : finalMaxPosition > 6 ? '50px' : '55px'}, 1fr))`
+                        }}
+                      >
                       {row.map((cell, colIndex) => {
                         if (editable && cell && 'serialNumber' in cell) {
                           // Editable mode - render input fields
@@ -445,7 +446,7 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
                             <div
                               key={colIndex}
                               className={`
-                                h-20 rounded-lg border-2 flex flex-col items-center justify-center p-1 transition-all
+                                h-12 rounded border flex flex-col items-center justify-center p-1 transition-all
                                 ${editableCell.serialNumber
                                   ? editableCell.isOriginal
                                     ? getConfidenceColor(editableCell.confidence)
@@ -457,12 +458,12 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
                               <Input
                                 value={editableCell.serialNumber}
                                 onChange={(e) => handleSerialNumberChange(editableCell.row, editableCell.position, e.target.value)}
-                                placeholder="Serial #"
-                                className="h-8 text-xs font-mono text-center border-0 bg-transparent focus:bg-white/90 focus:border focus:border-blue-400 rounded px-1"
-                                style={{ minWidth: '60px' }}
+                                placeholder="Serial"
+                                className="h-6 text-xs font-mono text-center border-0 bg-transparent focus:bg-white/90 focus:border focus:border-blue-400 rounded px-1"
+                                style={{ minWidth: '40px' }}
                               />
                               {editableCell.serialNumber && (
-                                <div className="text-xs opacity-75 font-medium mt-1">
+                                <div className="text-xs opacity-75 font-medium">
                                   {editableCell.isOriginal ? `${editableCell.confidence}%` : 'Manual'}
                                 </div>
                               )}
@@ -498,6 +499,7 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
                           );
                         }
                       })}
+                      </div>
                     </div>
                   </div>
                 ))}

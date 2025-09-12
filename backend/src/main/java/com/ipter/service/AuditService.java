@@ -1,11 +1,11 @@
 package com.ipter.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-import com.ipter.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,193 +13,117 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ipter.dto.AuditLogRequest;
+import com.ipter.dto.AuditLogResponse;
 import com.ipter.dto.AuditLogReviewRequest;
 import com.ipter.dto.AuditLogReviewResponse;
-import com.ipter.dto.ReviewSessionResponse;
-import com.ipter.model.AuditLog;
-import com.ipter.model.Project;
-import com.ipter.model.ProjectStatus;
-import com.ipter.model.User;
-import com.ipter.repository.AuditLogRepository;
-import com.ipter.repository.ReviewSessionRepository;
 import com.ipter.dto.BulkAuditLogReviewRequest;
 import com.ipter.dto.BulkReviewResponse;
+import com.ipter.dto.ReviewSessionResponse;
+import com.ipter.model.AuditLog;
+import com.ipter.model.ReviewStatus;
+import com.ipter.model.User;
+import com.ipter.repository.AuditLogRepository;
+
 
 /**
- * Service for audit trail management
+ * Service for audit trail management - simplified version
+ * Handles audit logs created from frontend
  */
 @Service
 @Transactional
 public class AuditService {
-    
+
     @Autowired
     private AuditLogRepository auditLogRepository;
 
-    @Autowired
-    private ReviewSessionRepository reviewSessionRepository;
-    
     /**
-     * Log an audit event
+     * Create an audit log entry (called from frontend)
      */
-    public void logEvent(String action, String entityType, UUID entityId, String details, User performedBy) {
+    public AuditLogResponse createAuditLog(AuditLogRequest request, User performedBy) {
         AuditLog auditLog = new AuditLog();
-        auditLog.setAction(action);
-        auditLog.setEntityType(entityType);
-        auditLog.setEntityId(entityId);
-        auditLog.setDetails(details);
+        auditLog.setAction(request.getAction());
+        auditLog.setEntityType(request.getEntityType());
+        auditLog.setEntityId(request.getEntityId());
+        auditLog.setDetails(request.getDetails());
         auditLog.setPerformedBy(performedBy);
+        auditLog.setIpAddress(request.getIpAddress());
+        auditLog.setUserAgent(request.getUserAgent());
         auditLog.setTimestamp(LocalDateTime.now());
-        
-        auditLogRepository.save(auditLog);
-    }
-    
-    /**
-     * Log an audit event with IP and user agent
-     */
-    public void logEvent(String action, String entityType, UUID entityId, String details, 
-                        User performedBy, String ipAddress, String userAgent) {
-        AuditLog auditLog = new AuditLog();
-        auditLog.setAction(action);
-        auditLog.setEntityType(entityType);
-        auditLog.setEntityId(entityId);
-        auditLog.setDetails(details);
-        auditLog.setPerformedBy(performedBy);
-        auditLog.setIpAddress(ipAddress);
-        auditLog.setUserAgent(userAgent);
-        auditLog.setTimestamp(LocalDateTime.now());
-        
-        auditLogRepository.save(auditLog);
-    }
-    
-    /**
-     * Log user creation
-     */
-    public void logUserCreation(User createdUser, User performedBy) {
-        logEvent("USER_CREATED", "User", createdUser.getId(), 
-                "User '" + createdUser.getUsername() + "' created with role " + createdUser.getRole(), 
-                performedBy);
-    }
-    
-    /**
-     * Log user update
-     */
-    public void logUserUpdate(User updatedUser, User performedBy, String changes) {
-        logEvent("USER_UPDATED", "User", updatedUser.getId(), 
-                "User '" + updatedUser.getUsername() + "' updated: " + changes, 
-                performedBy);
-    }
-    
-    /**
-     * Log user status change
-     */
-    public void logUserStatusChange(User user, boolean newStatus, User performedBy) {
-        String action = newStatus ? "USER_ENABLED" : "USER_DISABLED";
-        String details = "User '" + user.getUsername() + "' " + (newStatus ? "enabled" : "disabled");
-        logEvent(action, "User", user.getId(), details, performedBy);
-    }
-    
-    /**
-     * Log password reset
-     */
-    public void logPasswordReset(User user, User performedBy) {
-        logEvent("PASSWORD_RESET", "User", user.getId(), 
-                "Password reset for user '" + user.getUsername() + "'", 
-                performedBy);
-    }
-    
-    /**
-     * Log password change
-     */
-    public void logPasswordChange(User user) {
-        logEvent("PASSWORD_CHANGED", "User", user.getId(), 
-                "Password changed by user '" + user.getUsername() + "'", 
-                user);
-    }
-    
-    /**
-     * Log user login
-     */
-    public void logUserLogin(User user, String ipAddress, String userAgent) {
-        logEvent("USER_LOGIN", "User", user.getId(), 
-                "User '" + user.getUsername() + "' logged in", 
-                user, ipAddress, userAgent);
-    }
-    
-    /**
-     * Log user logout
-     */
-    public void logUserLogout(User user, String ipAddress) {
-        logEvent("USER_LOGOUT", "User", user.getId(), 
-                "User '" + user.getUsername() + "' logged out", 
-                user, ipAddress, null);
-    }
-    
-    /**
-     * Log failed login attempt
-     */
-    public void logFailedLogin(String username, String ipAddress, String userAgent) {
-        logEvent("LOGIN_FAILED", "User", null, 
-                "Failed login attempt for username '" + username + "'", 
-                null, ipAddress, userAgent);
-    }
-    public void logImageUpload(User user, Project project, Image image) {
-        logEvent("IMAGE_UPLOADED", "Image", image.getId(),"Image '" + image.getOriginalFilename() + "' uploaded for project '" + project.getName()+"'",
-                user);
+
+        AuditLog savedLog = auditLogRepository.save(auditLog);
+        return new AuditLogResponse(savedLog);
     }
 
     /**
      * Get all audit logs with pagination (Admin only)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public Page<AuditLog> getAllAuditLogs(Pageable pageable) {
-        return auditLogRepository.findAll(pageable);
+    public Page<AuditLogResponse> getAllAuditLogs(Pageable pageable) {
+        Page<AuditLog> auditLogs = auditLogRepository.findAllOrderByTimestampDesc(pageable);
+        return auditLogs.map(AuditLogResponse::new);
     }
-    
+
     /**
      * Get audit logs by user (Admin only)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLog> getAuditLogsByUser(User user) {
-        return auditLogRepository.findByPerformedBy(user);
+    public List<AuditLogResponse> getAuditLogsByUser(User user) {
+        List<AuditLog> auditLogs = auditLogRepository.findByPerformedBy(user);
+        return auditLogs.stream()
+                .map(AuditLogResponse::new)
+                .collect(Collectors.toList());
     }
-    
+
     /**
      * Get audit logs by date range (Admin only)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLog> getAuditLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
-        return auditLogRepository.findByTimestampBetween(startDate, endDate);
+    public List<AuditLogResponse> getAuditLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
+        List<AuditLog> auditLogs = auditLogRepository.findByTimestampBetween(startDate, endDate);
+        return auditLogs.stream()
+                .map(AuditLogResponse::new)
+                .collect(Collectors.toList());
     }
-    
+
     /**
      * Get audit logs by action (Admin only)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLog> getAuditLogsByAction(String action) {
-        return auditLogRepository.findByAction(action);
+    public List<AuditLogResponse> getAuditLogsByAction(String action) {
+        List<AuditLog> auditLogs = auditLogRepository.findByAction(action);
+        return auditLogs.stream()
+                .map(AuditLogResponse::new)
+                .collect(Collectors.toList());
     }
 
     /**
      * Get recent audit logs (Admin only)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLog> getRecentAuditLogs(int hours) {
+    public List<AuditLogResponse> getRecentAuditLogs(int hours) {
         LocalDateTime since = LocalDateTime.now().minusHours(hours);
-        return auditLogRepository.findRecentLogs(since);
+        List<AuditLog> auditLogs = auditLogRepository.findRecentLogs(since);
+        return auditLogs.stream()
+                .map(AuditLogResponse::new)
+                .collect(Collectors.toList());
     }
 
     /**
      * Get audit logs for specific entity (Admin only)
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLog> getAuditLogsForEntity(UUID entityId) {
-        return auditLogRepository.findByEntityId(entityId);
+    public List<AuditLogResponse> getAuditLogsForEntity(String entityId) {
+        List<AuditLog> auditLogs = auditLogRepository.findByEntityId(entityId);
+        return auditLogs.stream()
+                .map(AuditLogResponse::new)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -209,309 +133,280 @@ public class AuditService {
     @Transactional(readOnly = true)
     public AuditStatistics getAuditStatistics() {
         long totalLogs = auditLogRepository.count();
-        long userCreations = auditLogRepository.countByAction("USER_CREATED");
-        long userUpdates = auditLogRepository.countByAction("USER_UPDATED");
-        long loginAttempts = auditLogRepository.countByAction("USER_LOGIN");
-        long failedLogins = auditLogRepository.countByAction("LOGIN_FAILED");
-        
-        return new AuditStatistics(totalLogs, userCreations, userUpdates, loginAttempts, failedLogins);
-    }
+        long userLogins = auditLogRepository.countByAction("USER_LOGIN");
+        long userLogouts = auditLogRepository.countByAction("USER_LOGOUT");
+        long projectCreations = auditLogRepository.countByAction("PROJECT_CREATED");
+        long imageUploads = auditLogRepository.countByAction("IMAGE_UPLOADED");
 
-    // Project-related audit methods
-
-    /**
-     * Log project creation
-     */
-    public void logProjectCreation(Project project, User performedBy) {
-        logEvent("PROJECT_CREATED", "Project", project.getId(),
-                "Project '" + project.getName() + "' created",
-                performedBy);
-    }
-
-    /**
-     * Log project update
-     */
-    public void logProjectUpdate(Project project, User performedBy) {
-        logEvent("PROJECT_UPDATED", "Project", project.getId(),
-                "Project '" + project.getName() + "' updated",
-                performedBy);
-    }
-
-    /**
-     * Log project status change
-     */
-    public void logProjectStatusChange(Project project, ProjectStatus oldStatus, ProjectStatus newStatus, User performedBy) {
-        logEvent("PROJECT_STATUS_CHANGED", "Project", project.getId(),
-                "Project '" + project.getName() + "' status changed from " + oldStatus + " to " + newStatus,
-                performedBy);
-    }
-
-    /**
-     * Log PDF upload
-     */
-    public void logPdfUpload(Project project, String fileName, User performedBy) {
-        logEvent("PDF_UPLOADED", "Project", project.getId(),
-                "PDF file '" + fileName + "' uploaded for project '" + project.getName() + "'",
-                performedBy);
-    }
-
-    /**
-     * Log master data processing
-     */
-    public void logMasterDataProcessing(Project project, int extractedCount, User performedBy) {
-        logEvent("MASTER_DATA_PROCESSED", "Project", project.getId(),
-                "Master data processed for project '" + project.getName() + "' - extracted " + extractedCount + " container numbers",
-                performedBy);
+        return new AuditStatistics(totalLogs, userLogins, userLogouts, projectCreations, imageUploads);
     }
 
     /**
      * Inner class for audit statistics
      */
     public static class AuditStatistics {
-        private final long totalLogs;
-        private final long userCreations;
-        private final long userUpdates;
-        private final long loginAttempts;
-        private final long failedLogins;
-        
-        public AuditStatistics(long totalLogs, long userCreations, long userUpdates, 
-                              long loginAttempts, long failedLogins) {
+        private long totalLogs;
+        private long userLogins;
+        private long userLogouts;
+        private long projectCreations;
+        private long imageUploads;
+
+        public AuditStatistics(long totalLogs, long userLogins, long userLogouts, long projectCreations, long imageUploads) {
             this.totalLogs = totalLogs;
-            this.userCreations = userCreations;
-            this.userUpdates = userUpdates;
-            this.loginAttempts = loginAttempts;
-            this.failedLogins = failedLogins;
+            this.userLogins = userLogins;
+            this.userLogouts = userLogouts;
+            this.projectCreations = projectCreations;
+            this.imageUploads = imageUploads;
         }
-        
+
         // Getters
         public long getTotalLogs() { return totalLogs; }
-        public long getUserCreations() { return userCreations; }
-        public long getUserUpdates() { return userUpdates; }
-        public long getLoginAttempts() { return loginAttempts; }
-        public long getFailedLogins() { return failedLogins; }
-    }
+        public long getUserLogins() { return userLogins; }
+        public long getUserLogouts() { return userLogouts; }
+        public long getProjectCreations() { return projectCreations; }
+        public long getImageUploads() { return imageUploads; }
+        }
 
-    // ===== AUDIT LOG REVIEW METHODS =====
+
+    // --- Review methods with persistent state ---
 
     /**
-     * Review an audit log (Admin or users with audit trail permission)
+     * Review an individual audit log
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional
     public AuditLogReviewResponse reviewAuditLog(AuditLogReviewRequest request, User reviewer) {
-        Optional<AuditLog> auditLogOpt = auditLogRepository.findById(request.getAuditLogId());
-        if (auditLogOpt.isEmpty()) {
-            throw new RuntimeException("Audit log not found with ID: " + request.getAuditLogId());
+        try {
+            AuditLog auditLog = auditLogRepository.findById(request.getLogId())
+                    .orElseThrow(() -> new RuntimeException("Audit log not found with ID: " + request.getLogId()));
+
+            // Update review fields
+            auditLog.setReviewStatus(request.getReviewStatus());
+            auditLog.setReviewedBy(reviewer);
+            auditLog.setReviewedAt(LocalDateTime.now());
+            auditLog.setReviewComments(request.getReviewComments());
+
+            // Save the updated audit log
+            AuditLog savedLog = auditLogRepository.save(auditLog);
+
+            // Return the updated audit log as response
+            AuditLogReviewResponse response = new AuditLogReviewResponse(savedLog);
+            response.setSuccess(true);
+            response.setMessage("Audit log reviewed successfully");
+
+            return response;
+        } catch (Exception e) {
+            return new AuditLogReviewResponse(false, "Failed to review audit log: " + e.getMessage());
         }
-
-        AuditLog auditLog = auditLogOpt.get();
-        auditLog.setReviewStatus(request.getReviewStatus());
-        auditLog.setReviewedBy(reviewer);
-        auditLog.setReviewedAt(LocalDateTime.now());
-        auditLog.setReviewComments(request.getReviewComments());
-
-        auditLogRepository.save(auditLog);
-
-        // Log the review action itself
-        logEvent("AUDIT_LOG_REVIEWED", "AuditLog", auditLog.getId(),
-                "Audit log reviewed with status: " + request.getReviewStatus(), reviewer);
-
-        return new AuditLogReviewResponse(auditLog);
     }
 
-    /**
-     * Get audit logs by review status (Admin only)
-     */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Transactional(readOnly = true)
-    public List<AuditLogReviewResponse> getAuditLogsByReviewStatus(ReviewStatus reviewStatus) {
-        List<AuditLog> auditLogs = auditLogRepository.findByReviewStatus(reviewStatus);
-        return auditLogs.stream()
-                .map(AuditLogReviewResponse::new)
-                .toList();
-    }
-
-    /**
-     * Get audit logs by review status with pagination (Admin only)
-     */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Transactional(readOnly = true)
-    public Page<AuditLogReviewResponse> getAuditLogsByReviewStatus(ReviewStatus reviewStatus, Pageable pageable) {
-        Page<AuditLog> auditLogs = auditLogRepository.findByReviewStatus(reviewStatus, pageable);
-        return auditLogs.map(AuditLogReviewResponse::new);
-    }
-
-    /**
-     * Get pending review logs (Admin or users with audit trail permission)
-     */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
     public List<AuditLogReviewResponse> getPendingReviewLogs() {
-        List<AuditLog> auditLogs = auditLogRepository.findPendingReviewLogs();
-        return auditLogs.stream()
+        // Now returns actual pending logs from database
+        List<AuditLog> logs = auditLogRepository.findPendingReviews();
+        return logs.stream()
                 .map(AuditLogReviewResponse::new)
-                .toList();
+                .collect(Collectors.toList());
     }
 
-    /**
-     * Get flagged audit logs (Admin only)
-     */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLogReviewResponse> getFlaggedLogs() {
-        List<AuditLog> auditLogs = auditLogRepository.findFlaggedLogs();
-        return auditLogs.stream()
-                .map(AuditLogReviewResponse::new)
-                .toList();
+    public List<ReviewSessionResponse> getAllReviewSessions(String currentReviewerUsername) {
+        // Get actual review sessions based on reviewed logs grouped by reviewer and review date
+        List<ReviewSessionResponse> sessions = new java.util.ArrayList<>();
+
+        // Get all logs that have been reviewed (not PENDING)
+        List<AuditLog> reviewedLogs = auditLogRepository.findByReviewStatusIn(
+            List.of(ReviewStatus.APPROVED, ReviewStatus.REJECTED, ReviewStatus.FLAGGED, ReviewStatus.REVIEWED)
+        );
+
+        // Group by reviewer and review session (rounded to nearest minute to group bulk reviews together)
+        Map<String, Map<LocalDateTime, List<AuditLog>>> groupedSessions = reviewedLogs.stream()
+            .filter(log -> log.getReviewedBy() != null && log.getReviewedAt() != null)
+            .collect(Collectors.groupingBy(
+                log -> log.getReviewedBy().getUsername(),
+                Collectors.groupingBy(
+                    log -> log.getReviewedAt().withSecond(0).withNano(0) // Round to nearest minute
+                )
+            ));
+
+        // Create review session responses
+        for (Map.Entry<String, Map<LocalDateTime, List<AuditLog>>> reviewerEntry : groupedSessions.entrySet()) {
+            String reviewerUsername = reviewerEntry.getKey();
+
+            for (Map.Entry<LocalDateTime, List<AuditLog>> sessionEntry : reviewerEntry.getValue().entrySet()) {
+                LocalDateTime sessionDate = sessionEntry.getKey();
+                List<AuditLog> sessionLogs = sessionEntry.getValue();
+
+                // Find the latest review time for this session
+                LocalDateTime latestReviewTime = sessionLogs.stream()
+                    .map(AuditLog::getReviewedAt)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(sessionDate);
+
+                // Use the actual review comments from the logs (they should all be the same in a bulk review)
+                String sessionComments = sessionLogs.stream()
+                    .map(AuditLog::getReviewComments)
+                    .filter(comment -> comment != null && !comment.trim().isEmpty())
+                    .findFirst()
+                    .orElse("No comment provided");
+
+                // Create detailed log info for each reviewed log
+                List<ReviewSessionResponse.ReviewedLogInfo> reviewedLogInfos = sessionLogs.stream()
+                    .map(log -> new ReviewSessionResponse.ReviewedLogInfo(
+                        log.getId(),
+                        log.getAction(),
+                        log.getDetails(),
+                        log.getEntityType(),
+                        log.getTimestamp(),
+                        log.getReviewStatus()
+                    ))
+                    .collect(Collectors.toList());
+
+                ReviewSessionResponse session = new ReviewSessionResponse(
+                    java.util.UUID.randomUUID(), // Generate session ID
+                    reviewerUsername,
+                    latestReviewTime,
+                    sessionComments,
+                    sessionLogs.size(),
+                    reviewedLogInfos
+                );
+
+                sessions.add(session);
+            }
+        }
+
+        // Sort by review date (most recent first)
+        sessions.sort((s1, s2) -> s2.getReviewedAt().compareTo(s1.getReviewedAt()));
+
+        return sessions;
     }
 
     /**
-     * Get reviewed logs by date range (Admin only)
+     * Get audit logs by review session ID
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<AuditLogReviewResponse> getReviewedLogsByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
-        List<AuditLog> auditLogs = auditLogRepository.findReviewedLogsByDateRange(startDate, endDate);
-        return auditLogs.stream()
-                .map(AuditLogReviewResponse::new)
-                .toList();
+    public Map<String, Object> getAuditLogsByReviewSession(String reviewSessionId) {
+        // Since we generate session IDs dynamically, we need to find the session first
+        List<ReviewSessionResponse> allSessions = getAllReviewSessions(null);
+
+        ReviewSessionResponse targetSession = allSessions.stream()
+            .filter(session -> session.getId().toString().equals(reviewSessionId))
+            .findFirst()
+            .orElseThrow(() -> new RuntimeException("Review session not found with ID: " + reviewSessionId));
+
+        // Convert the reviewed logs to the format expected by frontend
+        List<AuditLogReviewResponse> auditLogResponses = targetSession.getReviewedLogs().stream()
+            .map(reviewedLog -> {
+                // Find the actual audit log to get complete information
+                AuditLog actualLog = auditLogRepository.findById(reviewedLog.getLogId())
+                    .orElse(null);
+
+                if (actualLog != null) {
+                    return new AuditLogReviewResponse(actualLog);
+                } else {
+                    // Fallback: create response from limited info
+                    AuditLogReviewResponse response = new AuditLogReviewResponse();
+                    response.setAuditLogId(reviewedLog.getLogId());
+                    response.setAction(reviewedLog.getAction());
+                    response.setEntityType(reviewedLog.getEntityType());
+                    response.setDetails(reviewedLog.getDetails());
+                    response.setTimestamp(reviewedLog.getTimestamp());
+                    response.setReviewStatus(reviewedLog.getReviewStatus());
+                    return response;
+                }
+            })
+            .collect(Collectors.toList());
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("auditLogs", auditLogResponses);
+        response.put("count", auditLogResponses.size());
+
+        return response;
     }
 
     /**
-     * Get audit logs reviewed by specific user (Admin only)
-     */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
-    @Transactional(readOnly = true)
-    public List<AuditLogReviewResponse> getAuditLogsReviewedBy(User reviewer) {
-        List<AuditLog> auditLogs = auditLogRepository.findByReviewedBy(reviewer);
-        return auditLogs.stream()
-                .map(AuditLogReviewResponse::new)
-                .toList();
-    }
-
-    /**
-     * Bulk review all pending audit logs (Admin or users with audit trail permission)
+     * Bulk review logs with actual database persistence
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional
     public BulkReviewResponse bulkReviewPendingLogs(BulkAuditLogReviewRequest request, User reviewer) {
-        // Get all pending review logs
-        List<AuditLog> pendingLogs = auditLogRepository.findPendingReviewLogs();
+        try {
+            List<AuditLog> logsToReview;
 
-        if (pendingLogs.isEmpty()) {
-            throw new RuntimeException("No pending audit logs found for review");
-        }
-
-        // Create a review session
-        ReviewSession reviewSession = new ReviewSession(reviewer, request.getReviewComments(), pendingLogs.size());
-        reviewSession = reviewSessionRepository.save(reviewSession);
-
-        // Update all pending logs
-        LocalDateTime reviewTime = LocalDateTime.now();
-        for (AuditLog auditLog : pendingLogs) {
-            auditLog.setReviewStatus(request.getReviewStatus());
-            auditLog.setReviewedBy(reviewer);
-            auditLog.setReviewedAt(reviewTime);
-            auditLog.setReviewComments(request.getReviewComments());
-            auditLog.setReviewSession(reviewSession);
-        }
-
-        // Update the details of the last reviewed log to include the bulk review action
-        if (!pendingLogs.isEmpty()) {
-            AuditLog lastLog = pendingLogs.get(pendingLogs.size() - 1);
-            String bulkReviewInfo = "\n[" + reviewTime + "]\n" +
-                                   reviewer.getUsername() + " performed BULK_AUDIT_REVIEW on AuditLog\n" +
-                                   "Bulk reviewed " + pendingLogs.size() + " audit logs with status: " + request.getReviewStatus();
-
-            // Append to existing details or create new details
-            String currentDetails = lastLog.getDetails();
-            if (currentDetails != null && !currentDetails.trim().isEmpty()) {
-                lastLog.setDetails(currentDetails + bulkReviewInfo);
+            // If specific log IDs are provided, review those; otherwise review all pending logs
+            if (request.getAuditLogIds() != null && !request.getAuditLogIds().isEmpty()) {
+                logsToReview = auditLogRepository.findByIdIn(request.getAuditLogIds());
             } else {
-                lastLog.setDetails(bulkReviewInfo.trim());
+                logsToReview = auditLogRepository.findPendingReviews();
             }
+
+            LocalDateTime reviewedAt = LocalDateTime.now();
+            int reviewedCount = 0;
+
+            // Update each log with review information
+            for (AuditLog log : logsToReview) {
+                log.setReviewStatus(request.getReviewStatus());
+                log.setReviewedBy(reviewer);
+                log.setReviewedAt(reviewedAt);
+                log.setReviewComments(request.getReviewComments());
+                auditLogRepository.save(log);
+                reviewedCount++;
+            }
+
+            // Generate a review session ID for tracking
+            java.util.UUID reviewSessionId = java.util.UUID.randomUUID();
+
+            String message = String.format("Bulk review completed by %s. Status: %s. %d logs processed.",
+                    reviewer.getUsername(),
+                    request.getReviewStatus(),
+                    reviewedCount);
+
+            return new BulkReviewResponse(reviewSessionId, reviewedCount, reviewedAt, message);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to perform bulk review: " + e.getMessage(), e);
         }
-
-        // Save all updated logs
-        auditLogRepository.saveAll(pendingLogs);
-
-        // Don't create a separate log entry for the bulk review action to avoid infinite pending logs
-
-        return new BulkReviewResponse(reviewSession.getId(), pendingLogs.size(), reviewTime);
     }
 
     /**
-     * Get all review sessions (Admin or users with audit trail permission)
+     * Get audit logs by review status
      */
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public List<ReviewSessionResponse> getAllReviewSessions() {
-        List<ReviewSession> sessions = reviewSessionRepository.findAllOrderByReviewedAtDesc();
-        return sessions.stream()
-                .map(ReviewSessionResponse::new)
-                .toList();
-    }
-
-    /**
-     * Get audit logs by review session (Admin or users with audit trail permission)
-     */
-    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
-    @Transactional(readOnly = true)
-    public List<AuditLogReviewResponse> getAuditLogsByReviewSession(UUID reviewSessionId) {
-        Optional<ReviewSession> reviewSessionOpt = reviewSessionRepository.findById(reviewSessionId);
-        if (reviewSessionOpt.isEmpty()) {
-            throw new RuntimeException("Review session not found with ID: " + reviewSessionId);
-        }
-
-        List<AuditLog> auditLogs = auditLogRepository.findByReviewSessionOrderByTimestampDesc(reviewSessionOpt.get());
-        return auditLogs.stream()
+    public List<AuditLogReviewResponse> getAuditLogsByReviewStatus(ReviewStatus reviewStatus) {
+        List<AuditLog> logs = auditLogRepository.findByReviewStatus(reviewStatus);
+        return logs.stream()
                 .map(AuditLogReviewResponse::new)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /**
-     * Get review statistics (Admin only)
+     * Get audit logs by review status with pagination
      */
-    @PreAuthorize("hasRole('ADMINISTRATOR')")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
     @Transactional(readOnly = true)
-    public ReviewStatistics getReviewStatistics() {
-        long totalLogs = auditLogRepository.count();
-        long pendingReviews = auditLogRepository.countByReviewStatus(ReviewStatus.PENDING);
-        long reviewedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.REVIEWED);
-        long flaggedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.FLAGGED);
-        long approvedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.APPROVED);
-        long rejectedLogs = auditLogRepository.countByReviewStatus(ReviewStatus.REJECTED);
-
-        return new ReviewStatistics(totalLogs, pendingReviews, reviewedLogs, flaggedLogs, approvedLogs, rejectedLogs);
+    public Page<AuditLogReviewResponse> getAuditLogsByReviewStatus(ReviewStatus reviewStatus, Pageable pageable) {
+        Page<AuditLog> logs = auditLogRepository.findByReviewStatus(reviewStatus, pageable);
+        return logs.map(AuditLogReviewResponse::new);
     }
 
     /**
-     * Inner class for review statistics
+     * Get count of logs by review status
      */
-    public static class ReviewStatistics {
-        private final long totalLogs;
-        private final long pendingReviews;
-        private final long reviewedLogs;
-        private final long flaggedLogs;
-        private final long approvedLogs;
-        private final long rejectedLogs;
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
+    @Transactional(readOnly = true)
+    public long getCountByReviewStatus(ReviewStatus reviewStatus) {
+        return auditLogRepository.countByReviewStatus(reviewStatus);
+    }
 
-        public ReviewStatistics(long totalLogs, long pendingReviews, long reviewedLogs,
-                               long flaggedLogs, long approvedLogs, long rejectedLogs) {
-            this.totalLogs = totalLogs;
-            this.pendingReviews = pendingReviews;
-            this.reviewedLogs = reviewedLogs;
-            this.flaggedLogs = flaggedLogs;
-            this.approvedLogs = approvedLogs;
-            this.rejectedLogs = rejectedLogs;
-        }
-
-        // Getters
-        public long getTotalLogs() { return totalLogs; }
-        public long getPendingReviews() { return pendingReviews; }
-        public long getReviewedLogs() { return reviewedLogs; }
-        public long getFlaggedLogs() { return flaggedLogs; }
-        public long getApprovedLogs() { return approvedLogs; }
-        public long getRejectedLogs() { return rejectedLogs; }
+    /**
+     * Get count of pending reviews
+     */
+    @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewAuditTrail(authentication.name)")
+    @Transactional(readOnly = true)
+    public long getPendingReviewsCount() {
+        return auditLogRepository.countPendingReviews();
     }
 }

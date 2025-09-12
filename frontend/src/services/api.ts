@@ -460,6 +460,7 @@ export interface CreateProjectRequest {
   site?: string;
   invoiceDate?: string;
   remarks?: string;
+  exampleContainerNumber?: string;
 }
 
 export interface ProjectResponse {
@@ -484,6 +485,7 @@ export interface ProjectResponse {
   remarks?: string;
   masterDataProcessed: boolean;
   masterDataCount: number;
+  exampleContainerNumber?: string;
   totalImages: number;
   processedImages: number;
   failedImages: number;
@@ -702,15 +704,20 @@ export const projectAPI = {
   },
 
   // Upload and process PDF in a single step (new combined API)
-  uploadAndProcessPdf: async (projectId: string, file: File, forceReprocess = false): Promise<{ message: string; result: ProcessPdfResponse }> => {
+  uploadAndProcessPdf: async (projectId: string, file: File, forceReprocess = false, exampleNumber?: string): Promise<{ message: string; result: ProcessPdfResponse }> => {
     const formData = new FormData();
     formData.append('file', file);
+
+    const params: any = { forceReprocess };
+    if (exampleNumber && exampleNumber.trim()) {
+      params.exampleNumber = exampleNumber.trim();
+    }
 
     const response = await api.post(`/projects/${projectId}/upload-and-process-pdf`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      params: { forceReprocess }
+      params
     });
     return response.data;
   },
@@ -766,6 +773,23 @@ export const projectAPI = {
         'Authorization': `Bearer ${getValidToken()}`,
       },
       body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  // Verify an image
+  verifyImage: async (imageId: string, isVerified: boolean = true): Promise<any> => {
+    const response = await fetch(`${API_BASE_URL}/images/${imageId}/verify?isVerified=${isVerified}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${getValidToken()}`,
+        'Content-Type': 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -1132,7 +1156,7 @@ export const auditAPI = {
   },
 
   // Get audit logs by review session
-  getAuditLogsByReviewSession: async (reviewSessionId: string): Promise<{ auditLogs: any[]; count: number }> => {
+  getAuditLogsByReviewSession: async (reviewSessionId: string): Promise<{ auditLogs?: any[]; reviewedLogs?: any[]; count: number }> => {
     // The request interceptor will handle the token
     const response = await api.get(`/audit/review-session/${reviewSessionId}/logs`);
     return response.data;

@@ -30,18 +30,17 @@ import com.ipter.repository.UserRepository;
 @Service
 @Transactional
 public class UserManagementService {
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private PasswordEncoder passwordEncoder;
-    
+
     @Autowired
     private SessionManagementService sessionManagementService;
 
-    @Autowired
-    private AuditService auditService;
+
 
     /**
      * Get current authenticated user
@@ -71,7 +70,7 @@ public class UserManagementService {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new Exception("Email already exists");
         }
-        
+
         // Create new user
         User user = new User();
         user.setUsername(request.getUsername());
@@ -89,15 +88,14 @@ public class UserManagementService {
         user.setMustChangePassword(request.isMustChangePassword());
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
-        
+
         User savedUser = userRepository.save(user);
 
-        // Log audit event
-        auditService.logUserCreation(savedUser, getCurrentUser());
+        // Audit logging will be handled by frontend
 
         return new UserResponse(savedUser);
     }
-    
+
     /**
      * Get all users with pagination
      */
@@ -107,7 +105,7 @@ public class UserManagementService {
         Page<User> users = userRepository.findAll(pageable);
         return users.map(UserResponse::new);
     }
-    
+
     /**
      * Get all users as list
      */
@@ -119,7 +117,7 @@ public class UserManagementService {
                 .map(UserResponse::new)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get user by ID
      */
@@ -130,7 +128,7 @@ public class UserManagementService {
                 .orElseThrow(() -> new Exception("User not found"));
         return new UserResponse(user);
     }
-    
+
     /**
      * Update user information
      */
@@ -138,7 +136,7 @@ public class UserManagementService {
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) throws Exception {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new Exception("User not found"));
-        
+
         // Update fields if provided
         if (request.getEmail() != null) {
             // Check if email is already taken by another user
@@ -148,35 +146,35 @@ public class UserManagementService {
             }
             user.setEmail(request.getEmail());
         }
-        
+
         if (request.getRole() != null) {
             user.setRole(request.getRole());
         }
-        
+
         if (request.getOrganization() != null) {
             user.setOrganization(request.getOrganization());
         }
-        
+
         if (request.getDesignation() != null) {
             user.setDesignation(request.getDesignation());
         }
-        
+
         if (request.getAddress() != null) {
             user.setAddress(request.getAddress());
         }
-        
+
         if (request.getCanViewAuditTrail() != null) {
             user.setCanViewAuditTrail(request.getCanViewAuditTrail());
         }
-        
+
         if (request.getCanCreateProjects() != null) {
             user.setCanCreateProjects(request.getCanCreateProjects());
         }
-        
+
         if (request.getCanViewReports() != null) {
             user.setCanViewReports(request.getCanViewReports());
         }
-        
+
         if (request.getIsActive() != null) {
             user.setActive(request.getIsActive());
             // Force logout if deactivating user
@@ -184,16 +182,15 @@ public class UserManagementService {
                 sessionManagementService.invalidateSession(userId.toString());
             }
         }
-        
+
         user.setUpdatedAt(LocalDateTime.now());
         User savedUser = userRepository.save(user);
 
-        // Log audit event
-        auditService.logUserUpdate(savedUser, getCurrentUser(), "User profile updated");
+        // Audit logging will be handled by frontend
 
         return new UserResponse(savedUser);
     }
-    
+
     /**
      * Enable/Disable user
      */
@@ -201,23 +198,22 @@ public class UserManagementService {
     public UserResponse toggleUserStatus(UUID userId) throws Exception {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new Exception("User not found"));
-        
+
         user.setActive(!user.isActive());
         user.setUpdatedAt(LocalDateTime.now());
-        
+
         // Force logout if deactivating
         if (!user.isActive()) {
             sessionManagementService.invalidateSession(userId.toString());
         }
-        
+
         User savedUser = userRepository.save(user);
 
-        // Log audit event
-        auditService.logUserStatusChange(savedUser, savedUser.isActive(), getCurrentUser());
+        // Audit logging will be handled by frontend
 
         return new UserResponse(savedUser);
     }
-    
+
     /**
      * Reset user password (Admin only)
      */
@@ -225,21 +221,20 @@ public class UserManagementService {
     public void resetUserPassword(UUID userId, ResetPasswordRequest request) throws Exception {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new Exception("User not found"));
-        
+
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setMustChangePassword(request.isForcePasswordChange());
         user.setFailedLoginAttempts(0); // Reset failed attempts
         user.setUpdatedAt(LocalDateTime.now());
-        
+
         userRepository.save(user);
 
-        // Log audit event
-        auditService.logPasswordReset(user, getCurrentUser());
+        // Audit logging will be handled by frontend
 
         // Force logout to require new login with new password
         sessionManagementService.invalidateSession(userId.toString());
     }
-    
+
     /**
      * Unlock user account (reset failed login attempts)
      */
@@ -247,14 +242,14 @@ public class UserManagementService {
     public UserResponse unlockUserAccount(UUID userId) throws Exception {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new Exception("User not found"));
-        
+
         user.setFailedLoginAttempts(0);
         user.setUpdatedAt(LocalDateTime.now());
-        
+
         User savedUser = userRepository.save(user);
         return new UserResponse(savedUser);
     }
-    
+
     /**
      * Get users by role
      */
@@ -266,7 +261,7 @@ public class UserManagementService {
                 .map(UserResponse::new)
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get active users count
      */
@@ -275,7 +270,7 @@ public class UserManagementService {
     public long getActiveUsersCount() {
         return userRepository.findByIsActiveTrue().size();
     }
-    
+
     /**
      * Get users with failed login attempts
      */

@@ -5,6 +5,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,12 +42,14 @@ import com.ipter.dto.SerialNumberUpdateResponse;
 import com.ipter.model.ExtractedData;
 import com.ipter.model.ExtractionType;
 import com.ipter.model.Image;
+import com.ipter.model.MasterData;
 import com.ipter.model.ProcessingStatus;
 import com.ipter.model.Project;
 import com.ipter.model.User;
 import com.ipter.model.ValidationStatus;
 import com.ipter.repository.ExtractedDataRepository;
 import com.ipter.repository.ImageRepository;
+import com.ipter.repository.MasterDataRepository;
 import com.ipter.repository.ProjectRepository;
 import com.ipter.repository.UserRepository;
 
@@ -55,23 +59,23 @@ import com.ipter.repository.UserRepository;
 @Service
 @Transactional
 public class ImageService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(ImageService.class);
-    
+
     @Autowired
     private ImageRepository imageRepository;
-    
+
     @Autowired
     private ProjectRepository projectRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private ExtractedDataRepository extractedDataRepository;
-    
+
     @Autowired
-    private AuditService auditService;
+    private MasterDataRepository masterDataRepository;
 
     @Autowired
     @Qualifier("aiServiceRestTemplate")
@@ -82,48 +86,48 @@ public class ImageService {
 
     @Autowired
     private GeminiService geminiService;
-    
+
     private static final String UPLOAD_DIR = "uploads/images";
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     private static final String[] ALLOWED_CONTENT_TYPES = {
         "image/jpeg", "image/jpg", "image/png", "image/tiff", "image/bmp"
     };
-    
+
     /**
      * Upload and optionally process an image
      */
-    public ImageUploadResponse uploadImage(MultipartFile file, ImageUploadRequest request) 
+    public ImageUploadResponse uploadImage(MultipartFile file, ImageUploadRequest request)
             throws Exception {
-        
+
         // Validate file
         validateImageFile(file);
-        
+
         // Get current user
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String username = auth.getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
-        
+
         // Get project
         Project project = projectRepository.findById(request.getProjectId())
                 .orElseThrow(() -> new RuntimeException("Project not found: " + request.getProjectId()));
-        
+
         // Create upload directory if it doesn't exist
         Path uploadPath = Paths.get(UPLOAD_DIR);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
-        
+
         // Generate unique filename
         String originalFilename = file.getOriginalFilename();
         String fileExtension = getFileExtension(originalFilename);
         String uniqueFilename = UUID.randomUUID().toString() + "_" + originalFilename;
         Path filePath = uploadPath.resolve(uniqueFilename);
-        
+
         try {
             // Save file to disk
             Files.copy(file.getInputStream(), filePath);
-            
+
             // Create image entity
             Image image = new Image(
                 originalFilename,
@@ -133,23 +137,22 @@ public class ImageService {
                 project,
                 user
             );
-            
+
             // Set additional metadata
             image.setProcessingStatus(ProcessingStatus.PENDING);
-            
+
             // Save to database
             image = imageRepository.save(image);
-            
-            // Log audit event
-            auditService.logImageUpload(user, project, image);
-            
+
+            // Audit logging will be handled by frontend
+
             logger.info("Image uploaded successfully: {} (ID: {})", originalFilename, image.getId());
-            
+
             // Process immediately if requested
             if (request.isProcessImmediately()) {
                 processImageAsync(image.getId());
             }
-            
+
             return new ImageUploadResponse(
                 image.getId(),
                 image.getOriginalFilename(),
@@ -160,62 +163,62 @@ public class ImageService {
                 image.getUploadedAt(),
                 "Image uploaded successfully"
             );
-            
+
         } catch (IOException e) {
             logger.error("Failed to save image file: {}", e.getMessage());
             throw new RuntimeException("Failed to save image file", e);
         }
     }
-    
+
     /**
      * Process an image using AI service
      */
     public ImageProcessingResponse processImage(UUID imageId) throws Exception {
         Image image = imageRepository.findById(imageId)
                 .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
-        
+
         // Update status to processing
         image.setProcessingStatus(ProcessingStatus.PROCESSING);
         imageRepository.save(image);
-        
+
         try {
             // Read image file
             Path imagePath = Paths.get(image.getFilePath());
             byte[] imageBytes = Files.readAllBytes(imagePath);
-            
+
             // Call Gemini AI service
             OCRResultDTO ocrResult = callGeminiService(imageBytes, image.getOriginalFilename(), image.getContentType());
-            
+
             // Process results
             if (ocrResult.getSuccess()) {
                 // Save extracted data
                 saveExtractedData(image, ocrResult);
-                
+
                 // Update image metadata
                 updateImageWithResults(image, ocrResult);
-                
+
                 image.setProcessingStatus(ProcessingStatus.COMPLETED);
                 image.setProcessedAt(LocalDateTime.now());
-                
-                logger.info("Image processed successfully: {} (ID: {})", 
+
+                logger.info("Image processed successfully: {} (ID: {})",
                            image.getOriginalFilename(), image.getId());
-                
+
             } else {
                 image.setProcessingStatus(ProcessingStatus.FAILED);
                 image.setErrorMessage(ocrResult.getErrorMessage());
-                logger.error("Image processing failed: {} - {}", 
+                logger.error("Image processing failed: {} - {}",
                            image.getOriginalFilename(), ocrResult.getErrorMessage());
             }
-            
+
             image = imageRepository.save(image);
-            
+
             // Create response
             ImageProcessingResponse response = new ImageProcessingResponse(
                 image.getId(),
                 image.getOriginalFilename(),
                 image.getProcessingStatus()
             );
-            
+
             if (ocrResult.getSuccess()) {
                 response.setExtractedText(ocrResult.getExtractedText());
                 response.setContainerNumbers(
@@ -226,7 +229,7 @@ public class ImageService {
                 response.setConfidence(ocrResult.getConfidence());
                 response.setContainerNumbersFound(ocrResult.getContainerNumbers().size());
                 response.setProcessedAt(image.getProcessedAt());
-                
+
                 // Add processing metadata
                 if (ocrResult.getProcessingMetadata() != null) {
                     response.setProcessingMetadata(new ImageProcessingResponse.ProcessingMetadata(
@@ -239,20 +242,20 @@ public class ImageService {
             } else {
                 response.setErrorMessage(image.getErrorMessage());
             }
-            
+
             return response;
-            
+
         } catch (Exception e) {
             logger.error("Error processing image {}: {}", imageId, e.getMessage());
-            
+
             image.setProcessingStatus(ProcessingStatus.FAILED);
             image.setErrorMessage("Processing error: " + e.getMessage());
             imageRepository.save(image);
-            
+
             throw new RuntimeException("Image processing failed", e);
         }
     }
-    
+
     /**
      * Process image asynchronously
      */
@@ -266,56 +269,56 @@ public class ImageService {
             logger.error("Async image processing failed for {}: {}", imageId, e.getMessage());
         }
     }
-    
+
     /**
      * Get image processing status
      */
     public ImageProcessingResponse getImageStatus(UUID imageId) {
         Image image = imageRepository.findById(imageId)
                 .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
-        
+
         ImageProcessingResponse response = new ImageProcessingResponse(
             image.getId(),
             image.getOriginalFilename(),
             image.getProcessingStatus()
         );
-        
+
         if (image.getProcessingStatus() == ProcessingStatus.COMPLETED) {
             // Get extracted data
             List<ExtractedData> extractedDataList = extractedDataRepository.findByImageId(imageId);
-            
+
             if (!extractedDataList.isEmpty()) {
                 response.setExtractedText(
                     extractedDataList.stream()
                         .map(ExtractedData::getExtractedText)
                         .collect(Collectors.joining("\n"))
                 );
-                
+
                 response.setContainerNumbers(
                     extractedDataList.stream()
                         .map(ExtractedData::getContainerNumber)
                         .filter(num -> num != null && !num.isEmpty())
                         .collect(Collectors.toList())
                 );
-                
+
                 response.setConfidence(image.getConfidence());
                 response.setContainerNumbersFound(image.getContainerNumbersFound());
             }
-            
+
             response.setProcessedAt(image.getProcessedAt());
         } else if (image.getProcessingStatus() == ProcessingStatus.FAILED) {
             response.setErrorMessage(image.getErrorMessage());
         }
-        
+
         return response;
     }
-    
+
     /**
      * Get images for a project
      */
     public List<ImageProcessingResponse> getProjectImages(UUID projectId) {
         List<Image> images = imageRepository.findByProjectIdOrderByUploadedAtDesc(projectId);
-        
+
         return images.stream()
                 .map(image -> {
                     ImageProcessingResponse response = new ImageProcessingResponse(
@@ -323,7 +326,7 @@ public class ImageService {
                         image.getOriginalFilename(),
                         image.getProcessingStatus()
                     );
-                    
+
                     if (image.getProcessingStatus() == ProcessingStatus.COMPLETED) {
                         response.setConfidence(image.getConfidence());
                         response.setContainerNumbersFound(image.getContainerNumbersFound());
@@ -331,7 +334,10 @@ public class ImageService {
                     } else if (image.getProcessingStatus() == ProcessingStatus.FAILED) {
                         response.setErrorMessage(image.getErrorMessage());
                     }
-                    
+
+                    // Set verification status
+                    response.setVerified(image.isVerified());
+
                     return response;
                 })
                 .collect(Collectors.toList());
@@ -649,5 +655,95 @@ public class ImageService {
             return imageOpt.get().getContentType();
         }
         return null;
+    }
+
+    /**
+     * Update image verification status
+     */
+    public void updateVerificationStatus(UUID imageId, boolean isVerified) {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Image not found: " + imageId));
+
+        image.setVerified(isVerified);
+        imageRepository.save(image);
+
+        logger.info("Updated verification status for image {} to {}", imageId, isVerified);
+    }
+
+    /**
+     * Get verified images for a project
+     */
+    public List<ImageProcessingResponse> getVerifiedProjectImages(UUID projectId) {
+        List<Image> images = imageRepository.findByProjectIdAndIsVerified(projectId, true);
+        return images.stream()
+                .map(this::convertToImageProcessingResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get images by verification status
+     */
+    public List<ImageProcessingResponse> getImagesByVerificationStatus(boolean isVerified) {
+        List<Image> images = imageRepository.findByIsVerified(isVerified);
+        return images.stream()
+                .map(this::convertToImageProcessingResponse)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert Image entity to ImageProcessingResponse DTO
+     */
+    private ImageProcessingResponse convertToImageProcessingResponse(Image image) {
+        ImageProcessingResponse response = new ImageProcessingResponse();
+        response.setImageId(image.getId());
+        response.setOriginalFilename(image.getOriginalFilename());
+        response.setProcessingStatus(image.getProcessingStatus());
+        response.setConfidence(image.getConfidence());
+        response.setContainerNumbersFound(image.getContainerNumbersFound());
+        response.setProcessedAt(image.getProcessedAt());
+        response.setErrorMessage(image.getErrorMessage());
+        response.setVerified(image.isVerified());
+
+        // Get extracted container numbers
+        List<ExtractedData> extractedDataList = extractedDataRepository.findByImageId(image.getId());
+        List<String> containerNumbers = extractedDataList.stream()
+                .filter(ed -> ed.getContainerNumber() != null && !ed.getContainerNumber().trim().isEmpty())
+                .map(ed -> ed.getContainerNumber().trim())
+                .collect(Collectors.toList());
+        response.setContainerNumbers(containerNumbers);
+
+        return response;
+    }
+
+    /**
+     * Get random master data examples for a project to use as example numbers
+     */
+    @Transactional(readOnly = true)
+    public List<String> getRandomMasterDataExamples(UUID projectId, int count) {
+        try {
+            // Get the project first
+            Project project = projectRepository.findById(projectId)
+                    .orElseThrow(() -> new RuntimeException("Project not found: " + projectId));
+
+            // Get master data for the project
+            List<MasterData> masterDataList = masterDataRepository.findByProject(project);
+
+            if (masterDataList.isEmpty()) {
+                logger.warn("No master data found for project: {}", projectId);
+                return new ArrayList<>();
+            }
+
+            // Shuffle and take the requested count
+            Collections.shuffle(masterDataList);
+            return masterDataList.stream()
+                    .limit(count)
+                    .map(MasterData::getContainerNumber)
+                    .filter(containerNumber -> containerNumber != null && !containerNumber.trim().isEmpty())
+                    .collect(Collectors.toList());
+
+        } catch (Exception e) {
+            logger.error("Error getting random master data examples for project {}: {}", projectId, e.getMessage());
+            return new ArrayList<>();
+        }
     }
 }

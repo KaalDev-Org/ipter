@@ -1,41 +1,42 @@
 package com.ipter.dto;
 
+import java.util.UUID;
+
 import com.ipter.model.ReviewStatus;
+
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.util.UUID;
-
 /**
- * DTO for audit log review request
+ * DTO for individual audit log review request
  */
 public class AuditLogReviewRequest {
     
-    @NotNull(message = "Audit log ID is required")
-    private UUID auditLogId;
+    @NotNull(message = "Log ID is required")
+    private UUID logId;
     
     @NotNull(message = "Review status is required")
     private ReviewStatus reviewStatus;
     
-    @Size(max = 1000, message = "Review comments cannot exceed 1000 characters")
+    @Size(max = 2000, message = "Review comments cannot exceed 2000 characters")
     private String reviewComments;
     
     // Constructors
     public AuditLogReviewRequest() {}
     
-    public AuditLogReviewRequest(UUID auditLogId, ReviewStatus reviewStatus, String reviewComments) {
-        this.auditLogId = auditLogId;
+    public AuditLogReviewRequest(UUID logId, ReviewStatus reviewStatus, String reviewComments) {
+        this.logId = logId;
         this.reviewStatus = reviewStatus;
         this.reviewComments = reviewComments;
     }
     
     // Getters and Setters
-    public UUID getAuditLogId() {
-        return auditLogId;
+    public UUID getLogId() {
+        return logId;
     }
     
-    public void setAuditLogId(UUID auditLogId) {
-        this.auditLogId = auditLogId;
+    public void setLogId(UUID logId) {
+        this.logId = logId;
     }
     
     public ReviewStatus getReviewStatus() {
@@ -52,5 +53,14 @@ public class AuditLogReviewRequest {
     
     public void setReviewComments(String reviewComments) {
         this.reviewComments = reviewComments;
+    }
+    
+    @Override
+    public String toString() {
+        return "AuditLogReviewRequest{" +
+                "logId=" + logId +
+                ", reviewStatus=" + reviewStatus +
+                ", reviewComments='" + reviewComments + '\'' +
+                '}';
     }
 }

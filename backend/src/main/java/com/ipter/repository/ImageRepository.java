@@ -113,4 +113,35 @@ public interface ImageRepository extends JpaRepository<Image, UUID> {
      */
     @Query("SELECT i FROM Image i WHERE i.processingStatus = 'FAILED' AND i.uploadedAt >= :since")
     List<Image> findFailedImagesForRetry(@Param("since") LocalDateTime since);
+
+    /**
+     * Find images by verification status
+     */
+    List<Image> findByIsVerified(boolean isVerified);
+
+    /**
+     * Find verified images by project
+     */
+    List<Image> findByProjectAndIsVerified(Project project, boolean isVerified);
+
+    /**
+     * Find verified images by project ID
+     */
+    List<Image> findByProjectIdAndIsVerified(UUID projectId, boolean isVerified);
+
+    /**
+     * Count verified images by project
+     */
+    @Query("SELECT COUNT(i) FROM Image i WHERE i.project.id = :projectId AND i.isVerified = :isVerified")
+    long countByProjectIdAndIsVerified(@Param("projectId") UUID projectId, @Param("isVerified") boolean isVerified);
+
+    /**
+     * Find verified images with pagination
+     */
+    Page<Image> findByIsVerified(boolean isVerified, Pageable pageable);
+
+    /**
+     * Find verified images by project with pagination
+     */
+    Page<Image> findByProjectAndIsVerified(Project project, boolean isVerified, Pageable pageable);
 }

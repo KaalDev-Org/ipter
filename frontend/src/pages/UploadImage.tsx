@@ -9,6 +9,8 @@ import { Upload, Image as ImageIcon, CheckCircle, XCircle, AlertCircle, Search, 
 import { projectAPI, ProjectResponse } from '../services/api';
 import { useToast } from '../components/ui/toast';
 import ImageProcessingDialog from '../components/ImageProcessingDialog';
+import { AuditLogger } from '../utils/auditLogger';
+import { useAuth } from '../contexts/AuthContext';
 
 interface UploadImageFormData {
   projectId: string;
@@ -30,6 +32,7 @@ interface UploadedImage {
 }
 
 const UploadImage: React.FC = () => {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectResponse | null>(null);
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
@@ -52,7 +55,12 @@ const UploadImage: React.FC = () => {
 
   useEffect(() => {
     fetchActiveProjects();
-  }, []);
+
+    // Log page view
+    if (user?.username) {
+      AuditLogger.logPageView(user.username, 'Upload Image', document.referrer || 'Direct').catch(console.warn);
+    }
+  }, [user?.username]);
 
   useEffect(() => {
     if (watchedProjectId) {
@@ -98,12 +106,19 @@ const UploadImage: React.FC = () => {
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files);
       const imageFiles = files.filter(file => file.type.startsWith('image/'));
 
       if (imageFiles.length > 0) {
+        // Log image upload
+        if (user?.username && selectedProject) {
+          const imageNames = imageFiles.map(f => f.name);
+          await AuditLogger.logImageUpload(selectedProject.name, selectedProject.id, imageNames, user.username);
+          await AuditLogger.logButtonClick(user.username, 'Upload Images', 'Upload Image', `${imageFiles.length} files`);
+        }
+
         handleImageFiles(imageFiles);
       } else {
         showToast('Please upload only image files.', 'error');
@@ -123,11 +138,16 @@ const UploadImage: React.FC = () => {
     setUploadedImages(prev => [...prev, ...newImages]);
   };
 
-  const removeImage = (imageId: string) => {
+  const removeImage = async (imageId: string) => {
     setUploadedImages(prev => {
       const imageToRemove = prev.find(img => img.id === imageId);
       if (imageToRemove) {
         URL.revokeObjectURL(imageToRemove.preview);
+
+        // Log image removal
+        if (user?.username && selectedProject) {
+          AuditLogger.logButtonClick(user.username, 'Remove Image', 'Upload Image', `File: ${imageToRemove.file.name}`).catch(console.warn);
+        }
       }
       return prev.filter(img => img.id !== imageId);
     });
@@ -177,6 +197,15 @@ const UploadImage: React.FC = () => {
     if (!selectedProject) {
       showToast('Please select a project', 'error');
       return;
+    }
+
+    // Log form submission
+    if (user?.username) {
+      await AuditLogger.logFormSubmission(user.username, 'Image Upload Form', 'Upload Image', {
+        projectName: selectedProject.name,
+        imageCount: uploadedImages.length
+      });
+      await AuditLogger.logDialogAction(user.username, 'Image Verification Dialog', 'opened', `Project: ${selectedProject.name}`);
     }
 
     // Open verification dialog

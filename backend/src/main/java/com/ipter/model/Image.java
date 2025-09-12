@@ -70,6 +70,10 @@ public class Image {
     // Processing metadata
     private Double confidence;
     private Integer containerNumbersFound = 0;
+
+    // Verification status
+    @Column(nullable = false)
+    private boolean isVerified = false;
     
     // Constructors
     public Image() {}
@@ -138,7 +142,10 @@ public class Image {
     public void setConfidence(Double confidence) { this.confidence = confidence; }
     
     public Integer getContainerNumbersFound() { return containerNumbersFound; }
-    public void setContainerNumbersFound(Integer containerNumbersFound) { 
-        this.containerNumbersFound = containerNumbersFound; 
+    public void setContainerNumbersFound(Integer containerNumbersFound) {
+        this.containerNumbersFound = containerNumbersFound;
     }
+
+    public boolean isVerified() { return isVerified; }
+    public void setVerified(boolean verified) { this.isVerified = verified; }
 }

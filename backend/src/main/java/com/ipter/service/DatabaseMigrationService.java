@@ -52,6 +52,9 @@ public class DatabaseMigrationService {
             addColumnIfNotExists("users", "can_view_reports", "BOOLEAN DEFAULT FALSE");
             addColumnIfNotExists("users", "must_change_password", "BOOLEAN DEFAULT FALSE");
 
+            // Add audit log review columns
+            migrateAuditLogReviewColumns();
+
             // Update role values from old enum to new enum
             updateUserRoles();
 
@@ -80,6 +83,31 @@ public class DatabaseMigrationService {
             } catch (Exception addException) {
                 System.err.println("Failed to add column " + columnName + ": " + addException.getMessage());
             }
+        }
+    }
+
+    /**
+     * Add review-related columns to audit_logs table
+     */
+    private void migrateAuditLogReviewColumns() {
+        try {
+            addColumnIfNotExists("audit_logs", "review_status", "VARCHAR(20) DEFAULT 'PENDING'");
+            addColumnIfNotExists("audit_logs", "reviewed_by", "UUID");
+            addColumnIfNotExists("audit_logs", "reviewed_at", "TIMESTAMP");
+            addColumnIfNotExists("audit_logs", "review_comments", "VARCHAR(2000)");
+
+            // Add foreign key constraint for reviewed_by if it doesn't exist
+            try {
+                jdbcTemplate.execute("ALTER TABLE audit_logs ADD CONSTRAINT fk_audit_logs_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id)");
+                System.out.println("Added foreign key constraint for reviewed_by column");
+            } catch (Exception e) {
+                // Constraint might already exist, ignore
+                System.out.println("Foreign key constraint for reviewed_by already exists or could not be added: " + e.getMessage());
+            }
+
+            System.out.println("Audit log review columns migration completed");
+        } catch (Exception e) {
+            System.err.println("Error migrating audit log review columns: " + e.getMessage());
         }
     }
     

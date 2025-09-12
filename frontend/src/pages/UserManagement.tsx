@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from '../contexts/AuthContext';
 import { userAPI, UserRole, UserResponse, CreateUserRequest, UserStats } from '../services/api';
 import { useToast } from '../components/ui/toast';
+import { AuditLogger } from '../utils/auditLogger';
 
 import { UserPlus, Users, Eye, EyeOff, Loader2, Shield, Building, MapPin, User, Key, Settings, Search, Filter, MoreHorizontal, Calendar, Clock, RefreshCw, AlertCircle, CheckCircle, Edit, Trash2, Unlock, RotateCcw } from 'lucide-react';
 
@@ -111,13 +112,18 @@ const UserManagement: React.FC = () => {
     }
   }, [user, isAdmin, navigate]);
 
-  // Load data on component mount
+  // Load data on component mount and log page view
   useEffect(() => {
     if (isAdmin) {
       loadUsers();
       loadUserStats();
+
+      // Log page view
+      if (user?.username) {
+        AuditLogger.logPageView(user.username, 'User Management', document.referrer || 'Direct').catch(console.warn);
+      }
     }
-  }, [isAdmin]);
+  }, [isAdmin, user?.username]);
 
   const loadUsers = async () => {
     setLoadingUsers(true);
@@ -225,6 +231,17 @@ const UserManagement: React.FC = () => {
 
       const response = await userAPI.createUser(createUserData);
 
+      // Log user creation
+      if (user?.username) {
+        await AuditLogger.logUserCreation(data.username, user.username, data.role);
+        await AuditLogger.logFormSubmission(user.username, 'Create User Form', 'User Management', {
+          username: data.username,
+          role: data.role,
+          organization: data.organization,
+          designation: data.designation
+        });
+      }
+
       // Show success toast
       showToast(`User ${data.username} has been created successfully!`, 'success');
 
@@ -281,7 +298,16 @@ const UserManagement: React.FC = () => {
     }
 
     try {
+      const targetUser = users.find(u => u.id === userId);
       const response = await userAPI.toggleUserStatus(userId);
+
+      // Log user status change
+      if (user?.username && targetUser) {
+        const newStatus = response.user.isActive ? 'Active' : 'Inactive';
+        await AuditLogger.logUserStatusChange(targetUser.username, user.username, newStatus);
+        await AuditLogger.logButtonClick(user.username, 'Toggle User Status', 'User Management', `${targetUser.username} -> ${newStatus}`);
+      }
+
       setSuccess(response.message);
 
       // Update local state
@@ -330,6 +356,12 @@ const UserManagement: React.FC = () => {
         forcePasswordChange: true
       });
 
+      // Log password reset
+      if (user?.username) {
+        await AuditLogger.logPasswordChange(selectedUser.username, user.username, true);
+        await AuditLogger.logButtonClick(user.username, 'Reset Password', 'User Management', `Reset password for ${selectedUser.username}`);
+      }
+
       setSuccess(`Password reset successfully for ${selectedUser.username}`);
       closeResetPasswordDialog();
 
@@ -369,6 +401,24 @@ const UserManagement: React.FC = () => {
 
     try {
       const response = await userAPI.updateUser(selectedUser.id, data);
+
+      // Log user update with changes
+      if (user?.username) {
+        const changes = [];
+        if (selectedUser.role !== data.role) changes.push(`role: ${selectedUser.role} -> ${data.role}`);
+        if (selectedUser.organization !== data.organization) changes.push(`organization: ${selectedUser.organization} -> ${data.organization}`);
+        if (selectedUser.designation !== data.designation) changes.push(`designation: ${selectedUser.designation} -> ${data.designation}`);
+        if (selectedUser.canViewAuditTrail !== data.canViewAuditTrail) changes.push(`canViewAuditTrail: ${selectedUser.canViewAuditTrail} -> ${data.canViewAuditTrail}`);
+        if (selectedUser.canCreateProjects !== data.canCreateProjects) changes.push(`canCreateProjects: ${selectedUser.canCreateProjects} -> ${data.canCreateProjects}`);
+        if (selectedUser.canViewReports !== data.canViewReports) changes.push(`canViewReports: ${selectedUser.canViewReports} -> ${data.canViewReports}`);
+        if (selectedUser.isActive !== data.isActive) changes.push(`isActive: ${selectedUser.isActive} -> ${data.isActive}`);
+
+        await AuditLogger.logUserUpdate(selectedUser.username, user.username, changes);
+        await AuditLogger.logFormSubmission(user.username, 'Edit User Form', 'User Management', {
+          targetUser: selectedUser.username,
+          changes: changes.length
+        });
+      }
 
       // Update the user in the local state
       setUsers(prevUsers =>
@@ -472,7 +522,12 @@ const UserManagement: React.FC = () => {
 
                 {/* Buttons */}
                 <button
-                  onClick={() => setActiveTab('create')}
+                  onClick={async () => {
+                    if (user?.username) {
+                      await AuditLogger.logTabSwitch(user.username, activeTab, 'create', 'User Management');
+                    }
+                    setActiveTab('create');
+                  }}
                   className={`relative z-10 px-5 py-2.5 text-sm font-medium transition-all duration-300 rounded-lg ${
                     activeTab === 'create'
                       ? 'text-gray-800 font-semibold'
@@ -483,7 +538,12 @@ const UserManagement: React.FC = () => {
                   Create User
                 </button>
                 <button
-                  onClick={() => setActiveTab('view')}
+                  onClick={async () => {
+                    if (user?.username) {
+                      await AuditLogger.logTabSwitch(user.username, activeTab, 'view', 'User Management');
+                    }
+                    setActiveTab('view');
+                  }}
                   className={`relative z-10 px-5 py-2.5 text-sm font-medium transition-all duration-300 rounded-lg ${
                     activeTab === 'view'
                       ? 'text-gray-800 font-semibold'

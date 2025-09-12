@@ -8,33 +8,33 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 
 import com.ipter.dto.ImageProcessingResponse;
 import com.ipter.dto.ImageUploadRequest;
 import com.ipter.dto.ImageUploadResponse;
 import com.ipter.dto.OCRResultDTO;
+import com.ipter.dto.ProjectResponse;
 import com.ipter.dto.SerialNumberUpdateRequest;
 import com.ipter.dto.SerialNumberUpdateResponse;
 import com.ipter.dto.UploadAndExtractResponse;
-import com.ipter.repository.ProjectRepository;
-import com.ipter.repository.UserRepository;
 import com.ipter.service.GeminiService;
 import com.ipter.service.ImageService;
+import com.ipter.service.ProjectService;
 
 import jakarta.validation.Valid;
 
@@ -55,11 +55,8 @@ public class ImageController {
     private GeminiService geminiService;
 
     @Autowired
-    private UserRepository userRepository;
+    private ProjectService projectService;
 
-    @Autowired
-    private ProjectRepository projectRepository;
-    
     /**
      * Upload an image for processing
      */
@@ -295,9 +292,27 @@ public class ImageController {
             ImageUploadRequest uploadRequest = new ImageUploadRequest(projectId, description, false);
             ImageUploadResponse uploadResp = imageService.uploadImage(file, uploadRequest);
 
-            // Load image entity and process inline
+            // Determine the example number to use - from project or from master data
+            String effectiveExampleNumber = null;
+            try {
+                ProjectResponse project = projectService.getProjectById(projectId);
+                effectiveExampleNumber = project.getExampleContainerNumber();
+
+                // If no example number in project, get 3 random examples from master data
+                if (effectiveExampleNumber == null || effectiveExampleNumber.trim().isEmpty()) {
+                    List<String> masterDataExamples = imageService.getRandomMasterDataExamples(projectId, 3);
+                    if (!masterDataExamples.isEmpty()) {
+                        effectiveExampleNumber = String.join(", ", masterDataExamples);
+                        logger.info("Using master data examples for project {}: {}", projectId, effectiveExampleNumber);
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("Could not retrieve project example number or master data: {}", e.getMessage());
+            }
+
+            // Load image entity and process inline with example number
             byte[] imageBytes = file.getBytes();
-            OCRResultDTO ocr = geminiService.extractContainerNumbers(imageBytes, file.getOriginalFilename(), file.getContentType());
+            OCRResultDTO ocr = geminiService.extractContainerNumbers(imageBytes, file.getOriginalFilename(), file.getContentType(), effectiveExampleNumber);
 
             // Save extracted data and update image metadata
             if (ocr.getSuccess()) {
@@ -386,6 +401,65 @@ public class ImageController {
         } catch (Exception e) {
             logger.error("Error serving image {}: {}", imageId, e.getMessage());
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * Update image verification status
+     */
+    @PutMapping("/{imageId}/verify")
+    @PreAuthorize("hasRole('ADMINISTRATOR') or hasRole('REVIEWER') or hasRole('USER')")
+    public ResponseEntity<?> updateImageVerificationStatus(
+            @PathVariable UUID imageId,
+            @RequestParam boolean isVerified) {
+        try {
+            logger.info("Updating verification status for image: {} to {}", imageId, isVerified);
+
+            imageService.updateVerificationStatus(imageId, isVerified);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "Image verification status updated successfully");
+            result.put("imageId", imageId);
+            result.put("isVerified", isVerified);
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error updating verification status for image {}: {}", imageId, e.getMessage());
+
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    /**
+     * Get verified images for a project
+     */
+    @GetMapping("/project/{projectId}/verified")
+    @PreAuthorize("hasRole('USER') or hasRole('REVIEWER') or hasRole('ADMINISTRATOR')")
+    public ResponseEntity<?> getVerifiedProjectImages(@PathVariable UUID projectId) {
+        try {
+            List<ImageProcessingResponse> images = imageService.getVerifiedProjectImages(projectId);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("data", images);
+            result.put("count", images.size());
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("Error getting verified project images {}: {}", projectId, e.getMessage());
+
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", e.getMessage());
+
+            return ResponseEntity.badRequest().body(error);
         }
     }
 

@@ -204,9 +204,11 @@ public class ProjectController {
     public ResponseEntity<?> uploadAndProcessPdf(
             @PathVariable UUID projectId,
             @RequestParam("file") MultipartFile file,
-            @RequestParam(defaultValue = "false") boolean forceReprocess) {
+            @RequestParam(defaultValue = "false") boolean forceReprocess,
+            @RequestParam(value = "exampleNumber", required = false) String exampleNumber) {
         try {
-            ProcessPdfResponse response = projectService.uploadAndProcessPdf(projectId, file, forceReprocess);
+            logger.info("Upload-and-process-pdf for project: {} with example: {}", projectId, exampleNumber);
+            ProcessPdfResponse response = projectService.uploadAndProcessPdf(projectId, file, forceReprocess, exampleNumber);
 
             Map<String, Object> result = new HashMap<>();
             result.put("message", "PDF processed successfully");
@@ -250,13 +252,16 @@ public class ProjectController {
      */
     @GetMapping("/{projectId}/view-data")
     @PreAuthorize("hasRole('ADMINISTRATOR') or @userManagementService.canViewReports(authentication.name)")
-    public ResponseEntity<?> viewProjectData(@PathVariable UUID projectId) {
+    public ResponseEntity<?> viewProjectData(
+            @PathVariable UUID projectId,
+            @RequestParam(defaultValue = "true") boolean verifiedOnly) {
         try {
-            ProjectDataViewDTO projectDataView = dataViewService.getProjectDataView(projectId);
+            ProjectDataViewDTO projectDataView = dataViewService.getProjectDataView(projectId, verifiedOnly);
 
             Map<String, Object> response = new HashMap<>();
             response.put("message", "Project data retrieved successfully");
             response.put("data", projectDataView);
+            response.put("verifiedOnly", verifiedOnly);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

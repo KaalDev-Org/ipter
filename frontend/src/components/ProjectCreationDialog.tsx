@@ -192,7 +192,7 @@ const ProjectCreationDialog: React.FC<ProjectCreationDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-3">
             <Package className="w-6 h-6 text-blue-600" />
@@ -200,9 +200,9 @@ const ProjectCreationDialog: React.FC<ProjectCreationDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Progress Steps */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {steps.map((step, index) => (
               <div key={step.id} className="flex items-start space-x-4">
                 <div className="flex-shrink-0 mt-1">
@@ -243,22 +243,7 @@ const ProjectCreationDialog: React.FC<ProjectCreationDialogProps> = ({
                   </h3>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Project ID</label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <code className="text-sm bg-white px-2 py-1 rounded border">
-                        {result.projectId}
-                      </code>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyToClipboard(result.projectId)}
-                      >
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
+                <div className="mb-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600">Project Name</label>
                     <div className="text-sm font-medium mt-1">{result.projectName}</div>

@@ -16,11 +16,11 @@ public class BulkReviewResponse {
     // Constructors
     public BulkReviewResponse() {}
     
-    public BulkReviewResponse(UUID reviewSessionId, int reviewedCount, LocalDateTime reviewedAt) {
+    public BulkReviewResponse(UUID reviewSessionId, int reviewedCount, LocalDateTime reviewedAt, String message) {
         this.reviewSessionId = reviewSessionId;
         this.reviewedCount = reviewedCount;
         this.reviewedAt = reviewedAt;
-        this.message = "Successfully reviewed " + reviewedCount + " audit logs";
+        this.message = message;
     }
     
     // Getters and Setters
@@ -54,5 +54,15 @@ public class BulkReviewResponse {
     
     public void setMessage(String message) {
         this.message = message;
+    }
+    
+    @Override
+    public String toString() {
+        return "BulkReviewResponse{" +
+                "reviewSessionId=" + reviewSessionId +
+                ", reviewedCount=" + reviewedCount +
+                ", reviewedAt=" + reviewedAt +
+                ", message='" + message + '\'' +
+                '}';
     }
 }

@@ -20,7 +20,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * Audit log entity for tracking user activities
+ * Audit log entity for tracking user activities with review functionality
+ * Supports persistent review states and reviewer tracking
  */
 @Entity
 @Table(name = "audit_logs")
@@ -31,16 +32,16 @@ public class AuditLog {
     private UUID id;
     
     @NotBlank(message = "Action is required")
-    @Size(max = 100, message = "Action cannot exceed 100 characters")
+    @Size(max = 200, message = "Action cannot exceed 200 characters")
     @Column(nullable = false)
     private String action;
     
     @Size(max = 100, message = "Entity type cannot exceed 100 characters")
     private String entityType;
     
-    private UUID entityId;
+    private String entityId;
     
-    @Size(max = 1000, message = "Details cannot exceed 1000 characters")
+    @Size(max = 2000, message = "Details cannot exceed 2000 characters")
     private String details;
     
     @ManyToOne(fetch = FetchType.LAZY)
@@ -57,9 +58,9 @@ public class AuditLog {
     @Size(max = 500, message = "User agent cannot exceed 500 characters")
     private String userAgent;
 
-    // Review fields
+    // Review-related fields
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "review_status")
     private ReviewStatus reviewStatus = ReviewStatus.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -67,20 +68,16 @@ public class AuditLog {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "password", "authorities"})
     private User reviewedBy;
 
+    @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
 
-    @Size(max = 1000, message = "Review comments cannot exceed 1000 characters")
+    @Column(name = "review_comments", length = 2000)
     private String reviewComments;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "review_session_id")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
-    private ReviewSession reviewSession;
 
     // Constructors
     public AuditLog() {}
     
-    public AuditLog(String action, String entityType, UUID entityId, String details, User performedBy) {
+    public AuditLog(String action, String entityType, String entityId, String details, User performedBy) {
         this.action = action;
         this.entityType = entityType;
         this.entityId = entityId;
@@ -114,11 +111,11 @@ public class AuditLog {
         this.entityType = entityType;
     }
     
-    public UUID getEntityId() {
+    public String getEntityId() {
         return entityId;
     }
-    
-    public void setEntityId(UUID entityId) {
+
+    public void setEntityId(String entityId) {
         this.entityId = entityId;
     }
     
@@ -162,7 +159,6 @@ public class AuditLog {
         this.userAgent = userAgent;
     }
 
-    // Review fields getters and setters
     public ReviewStatus getReviewStatus() {
         return reviewStatus;
     }
@@ -194,12 +190,23 @@ public class AuditLog {
     public void setReviewComments(String reviewComments) {
         this.reviewComments = reviewComments;
     }
-
-    public ReviewSession getReviewSession() {
-        return reviewSession;
-    }
-
-    public void setReviewSession(ReviewSession reviewSession) {
-        this.reviewSession = reviewSession;
+    
+    @Override
+    public String toString() {
+        return "AuditLog{" +
+                "id=" + id +
+                ", action='" + action + '\'' +
+                ", entityType='" + entityType + '\'' +
+                ", entityId=" + entityId +
+                ", details='" + details + '\'' +
+                ", performedBy=" + (performedBy != null ? performedBy.getUsername() : null) +
+                ", timestamp=" + timestamp +
+                ", ipAddress='" + ipAddress + '\'' +
+                ", userAgent='" + userAgent + '\'' +
+                ", reviewStatus=" + reviewStatus +
+                ", reviewedBy=" + (reviewedBy != null ? reviewedBy.getUsername() : null) +
+                ", reviewedAt=" + reviewedAt +
+                ", reviewComments='" + reviewComments + '\'' +
+                '}';
     }
 }

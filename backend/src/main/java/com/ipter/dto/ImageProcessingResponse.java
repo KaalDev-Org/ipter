@@ -21,6 +21,7 @@ public class ImageProcessingResponse {
     private LocalDateTime processedAt;
     private String errorMessage;
     private ProcessingMetadata processingMetadata;
+    private boolean isVerified;
     
     // Constructors
     public ImageProcessingResponse() {}
@@ -111,6 +112,14 @@ public class ImageProcessingResponse {
     
     public void setProcessingMetadata(ProcessingMetadata processingMetadata) {
         this.processingMetadata = processingMetadata;
+    }
+
+    public boolean isVerified() {
+        return isVerified;
+    }
+
+    public void setVerified(boolean verified) {
+        this.isVerified = verified;
     }
     
     /**

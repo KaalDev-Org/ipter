@@ -1,27 +1,12 @@
 package com.ipter.model;
 
 /**
- * Enum for audit log review status
+ * Enumeration for audit log review statuses
  */
 public enum ReviewStatus {
-    PENDING("Pending Review"),
-    REVIEWED("Reviewed"),
-    FLAGGED("Flagged for Attention"),
-    APPROVED("Approved"),
-    REJECTED("Rejected");
-    
-    private final String displayName;
-    
-    ReviewStatus(String displayName) {
-        this.displayName = displayName;
-    }
-    
-    public String getDisplayName() {
-        return displayName;
-    }
-    
-    @Override
-    public String toString() {
-        return displayName;
-    }
+    PENDING,
+    REVIEWED,
+    FLAGGED,
+    APPROVED,
+    REJECTED
 }
