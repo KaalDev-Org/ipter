@@ -1,0 +1,95 @@
+version: '3.8'
+
+# IPTER Application - Production Deployment
+# This docker-compose file uses the published Docker Hub image
+# No source code required - just this file and optional .env file
+
+services:
+  ipter-app:
+    image: your-dockerhub-username/ipter:latest  # Replace with your actual Docker Hub username
+    # Example: myusername/ipter:latest
+    container_name: ipter-application
+    ports:
+      - "80:80"      # Frontend (nginx)
+      - "8080:8080"  # Backend API
+    environment:
+      # Database Configuration (H2 by default)
+      - SPRING_DATASOURCE_URL=jdbc:h2:file:/app/data/ipter;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+      - SPRING_DATASOURCE_USERNAME=ipter
+      - SPRING_DATASOURCE_PASSWORD=password
+      
+      # Gemini API Configuration
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-AIzaSyBKPybSyqXhIHUsnR8RCpOXhYupuBREM3w}
+      - GEMINI_API_URL=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent
+      
+      # File Storage Configuration
+      - FILE_UPLOAD_DIR=/app/uploads
+      - FILE_PROCESSED_DIR=/app/processed
+      - FILE_REPORTS_DIR=/app/reports
+      - FILE_THUMBNAILS_DIR=/app/thumbnails
+      
+      # Security Configuration
+      - JWT_SECRET=${JWT_SECRET:-mySecretKeyForIPTERApplicationThatShouldBeChangedInProduction}
+      - JWT_EXPIRATION=86400000
+      
+      # Application Configuration
+      - SERVER_PORT=8080
+      - USER_MAX_CONCURRENT_USERS=5
+      - USER_SESSION_TIMEOUT=3600000
+      
+      # Logging Configuration
+      - LOGGING_LEVEL_COM_IPTER=INFO
+      - LOGGING_LEVEL_ROOT=WARN
+      
+      # CORS Configuration
+      - CORS_ALLOWED_ORIGINS=http://localhost,http://localhost:80,http://localhost:3000
+      
+    volumes:
+      - ipter-data:/app/data
+      - ipter-uploads:/app/uploads
+      - ipter-processed:/app/processed
+      - ipter-reports:/app/reports
+      - ipter-thumbnails:/app/thumbnails
+      - ipter-logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # Optional: PostgreSQL for production use
+  # Uncomment this section if you want to use PostgreSQL instead of H2
+  # ipter-db:
+  #   image: postgres:15-alpine
+  #   container_name: ipter-database
+  #   environment:
+  #     - POSTGRES_DB=ipter
+  #     - POSTGRES_USER=ipter
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ipter_password}
+  #   volumes:
+  #     - ipter-postgres-data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+volumes:
+  ipter-data:
+    driver: local
+  ipter-uploads:
+    driver: local
+  ipter-processed:
+    driver: local
+  ipter-reports:
+    driver: local
+  ipter-thumbnails:
+    driver: local
+  ipter-logs:
+    driver: local
+  # ipter-postgres-data:
+  #   driver: local
+
+networks:
+  default:
+    name: ipter-network
