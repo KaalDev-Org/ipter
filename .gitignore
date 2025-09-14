@@ -147,3 +147,10 @@ spring.log
 
 # Build artifacts
 *.orig
+/desktop-app/dist/win-unpacked/resources/app.asar
+/desktop-app/dist-new/win-unpacked/resources/app.asar
+/desktop-app/release/win-unpacked/resources/app.asar
+/ipter-build/win-unpacked/resources/app.asar
+/ipter-build-v2/win-unpacked/resources/app.asar
+/ipter-build-v3/win-unpacked/resources/app.asar
+/ipter-build-v4/win-unpacked/resources/app.asar
