@@ -244,6 +244,29 @@ const ViewAuditTrail: React.FC = () => {
     return withoutUserPrefix || cleanDetails;
   };
 
+  // Convert technical action names to user-friendly descriptions
+  const formatActionName = (action: string): string => {
+    const actionMap: { [key: string]: string } = {
+      'USER_UPDATED': 'updated user settings',
+      'UI_INTERACTION': 'interacted with interface',
+      'PAGE_VIEW': 'viewed page',
+      'NAVIGATION': 'navigated',
+      'BUTTON_CLICK': 'clicked button',
+      'FORM_SUBMISSION': 'submitted form',
+      'USER_LOGIN': 'logged in',
+      'USER_LOGOUT': 'logged out',
+      'FAILED_LOGIN': 'failed login attempt',
+      'PROJECT_CREATION': 'created project',
+      'PROJECT_UPDATE': 'updated project',
+      'IMAGE_UPLOAD': 'uploaded image',
+      'IMAGE_VERIFICATION': 'verified image',
+      'TAB_SWITCH': 'switched tab',
+      'DROPDOWN_ACTION': 'used dropdown'
+    };
+
+    return actionMap[action] || action.toLowerCase().replace(/_/g, ' ');
+  };
+
   // Handle session selection
   const handleSessionSelect = (session: ReviewSession) => {
     setSelectedSession(session);
@@ -474,13 +497,7 @@ const ViewAuditTrail: React.FC = () => {
                               <div className="text-gray-900">
                                 <span className="text-blue-700 font-semibold">{log.performedBy?.username || 'Unknown'}</span>
                                 <span className="text-gray-700"> performed </span>
-                                <span className="text-orange-600 font-semibold">{log.action}</span>
-                                {log.entityType && (
-                                  <>
-                                    <span className="text-gray-700"> on </span>
-                                    <span className="text-purple-600 font-semibold">{log.entityType}</span>
-                                  </>
-                                )}
+                                <span className="text-orange-600 font-semibold">{formatActionName(log.action)}</span>
                                 {log.details && (
                                   <>
                                     <span className="text-gray-700"> - </span>

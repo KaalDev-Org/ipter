@@ -341,64 +341,58 @@ const UploadImage: React.FC = () => {
                             <p className="text-sm text-gray-600 mb-3">
                               Total: {(uploadedImages.reduce((acc, img) => acc + img.file.size, 0) / 1024 / 1024).toFixed(2)} MB
                             </p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setUploadedImages([])}
-                              className="border-red-200 text-red-600 hover:bg-red-50 mr-2"
-                            >
-                              <X className="w-4 h-4 mr-1" />
-                              Clear All
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
-                              className="border-teal-200 text-teal-600 hover:bg-teal-50"
-                            >
-                              <Plus className="w-4 h-4 mr-1" />
-                              Add More
-                            </Button>
+                            <div className="flex justify-center space-x-2 mb-4">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUploadedImages([])}
+                                className="border-red-200 text-red-600 hover:bg-red-50"
+                              >
+                                <X className="w-4 h-4 mr-1" />
+                                Clear All
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => (document.querySelector('input[type="file"]') as HTMLInputElement)?.click()}
+                                className="border-teal-200 text-teal-600 hover:bg-teal-50"
+                              >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add More
+                              </Button>
+                            </div>
+
+                            {/* Display uploaded images in a grid within the dotted region */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-48 overflow-y-auto">
+                              {uploadedImages.map((image) => (
+                                <div key={image.id} className="relative group">
+                                  <img
+                                    src={image.preview}
+                                    alt={image.file.name}
+                                    className="w-full h-20 object-cover rounded-lg border border-gray-200 shadow-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeImage(image.id)}
+                                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-red-600"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 rounded-b-lg truncate">
+                                    {image.file.name}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* Uploaded Images Preview */}
-                  {uploadedImages.length > 0 && (
-                    <div className="space-y-3">
-                      <Label className="text-base font-semibold text-gray-900 flex items-center space-x-2">
-                        <div className="w-5 h-5 rounded-full bg-purple-100 flex items-center justify-center">
-                          <span className="text-xs font-bold text-purple-600">3</span>
-                        </div>
-                        <span>Uploaded Images ({uploadedImages.length})</span>
-                      </Label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {uploadedImages.map((image) => (
-                          <div key={image.id} className="relative group">
-                            <img
-                              src={image.preview}
-                              alt={image.file.name}
-                              className="w-full h-24 object-cover rounded-lg border border-gray-200"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeImage(image.id)}
-                              className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs p-1 rounded-b-lg truncate">
-                              {image.file.name}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+
 
                   {/* Submit Button */}
                   <div className="pt-4 flex justify-center">

@@ -211,26 +211,32 @@ const ProjectData: React.FC = () => {
           {/* Project Selection in Hero Section */}
           <div className="mt-6">
             {/* Project Dropdown */}
-            <div className="max-w-md">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Verdana, sans-serif' }}>
-                  Active Projects ({activeProjects.length})
-                </label>
+            <div className="flex items-center space-x-4">
+              <label className="text-sm font-medium text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Verdana, sans-serif' }}>
+                Active Projects ({activeProjects.length}):
+              </label>
+              <div className="min-w-[300px]">
                 <Select onValueChange={handleProjectSelect} disabled={isLoadingProjects} value={selectedProject?.id || ""}>
-                  <SelectTrigger className="h-12 bg-white/80">
-                    <SelectValue placeholder={isLoadingProjects ? "Loading projects..." : "Select a project"} />
+                  <SelectTrigger className="h-10 bg-white/80 text-sm w-full">
+                    <SelectValue placeholder={isLoadingProjects ? "Loading projects..." : activeProjects.length === 0 ? "No projects available" : "Select a project"} />
                   </SelectTrigger>
-                  <SelectContent>
-                    {activeProjects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{project.name}</span>
-                          <span className="text-xs text-gray-500">
-                            Created: {formatDate(project.createdAt)}
-                          </span>
-                        </div>
+                  <SelectContent className="min-w-[300px]">
+                    {activeProjects.length === 0 ? (
+                      <SelectItem value="no-projects" disabled>
+                        <span className="text-gray-500">No active projects found</span>
                       </SelectItem>
-                    ))}
+                    ) : (
+                      activeProjects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          <div className="flex flex-col w-full">
+                            <span className="font-medium">{project.name}</span>
+                            <span className="text-xs text-gray-500">
+                              Created: {formatDate(project.createdAt)}
+                            </span>
+                          </div>
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>

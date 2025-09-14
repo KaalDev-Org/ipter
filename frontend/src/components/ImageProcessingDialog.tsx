@@ -265,10 +265,13 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
       // Call the verification API
       await projectAPI.verifyImage(imageId, true);
 
-      showToast('Image verified successfully!', 'success');
-
-      // Close the dialog after successful verification
+      // Close the dialog first
       onClose();
+
+      // Show toast after dialog closes with a small delay
+      setTimeout(() => {
+        showToast('Image verified successfully!', 'success');
+      }, 100);
 
     } catch (error: any) {
       console.error('Error verifying image:', error);
@@ -579,7 +582,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-6xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-3">

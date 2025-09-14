@@ -188,7 +188,6 @@ const UserManagement: React.FC = () => {
       canViewReports: false,
       mustChangePassword: false,
       role: UserRole.USER,
-      organization: 'Zuellig Pharma',
     },
   });
 
