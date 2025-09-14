@@ -625,6 +625,10 @@ export interface GeminiExtractionResponse {
     total_products: number;
   };
 
+  // New calculated fields
+  totalContainers: number;
+  averageConfidence: number;
+
   // Row data
   row1: GridRow;
   row2: GridRow;

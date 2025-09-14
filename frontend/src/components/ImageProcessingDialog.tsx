@@ -431,7 +431,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
       // Calculate final results
       const completedImages = processedImages.filter(img => img.status === 'completed');
       const totalContainers = completedImages.reduce((sum, img) =>
-        sum + (img.extractionResult?.grid_structure?.total_products || 0), 0);
+        sum + (img.extractionResult?.totalContainers || 0), 0);
 
       controller.completeStep(2, `Successfully processed ${completedImages.length} images`, 3000);
 
@@ -573,11 +573,11 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
   const completedImages = processedImages.filter(img => img.status === 'completed');
   const stats = {
     processedImages: processedImages.filter(img => img.status === 'completed').length,
-    totalContainers: completedImages.reduce((sum, img) => sum + (img.extractionResult?.data?.containerNumbers?.length || 0), 0),
+    totalContainers: completedImages.reduce((sum, img) => sum + (img.extractionResult?.totalContainers || 0), 0),
     errorImages: processedImages.filter(img => img.status === 'error').length,
     avgConfidence: completedImages.length > 0
       ? Math.round(completedImages.reduce((sum, img) =>
-          sum + (img.extractionResult?.data?.confidence || 0), 0) / completedImages.length)
+          sum + (img.extractionResult?.averageConfidence || 0), 0) / completedImages.length)
       : 0
   };
 

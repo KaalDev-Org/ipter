@@ -397,9 +397,9 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
             <span>Container Extraction Results</span>
           </CardTitle>
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-600">Overall Confidence:</span>
-            <Badge className={`${getConfidenceBadgeColor(confidence)} text-white`}>
-              {confidence.toFixed(2)}%
+            <span className="text-sm text-gray-600">Average Confidence:</span>
+            <Badge className={`${getConfidenceBadgeColor(extractionResult?.averageConfidence || confidence)} text-white`}>
+              {(extractionResult?.averageConfidence || confidence).toFixed(2)}%
             </Badge>
           </div>
         </div>
@@ -415,7 +415,7 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
               <h3 className="text-base font-semibold text-gray-900">Original Image</h3>
               <Badge variant="outline" className="text-xs">
                 {extractionResult ?
-                  extractionResult.grid_structure?.total_products || 0 :
+                  extractionResult.totalContainers || 0 :
                   containerNumbers.length} containers detected
               </Badge>
             </div>
