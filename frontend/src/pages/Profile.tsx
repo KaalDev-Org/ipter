@@ -235,34 +235,34 @@ const Profile: React.FC = () => {
                   Permissions & Access
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canViewAuditTrail ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canViewAuditTrail ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                     <div className="flex items-center space-x-2">
-                      <Eye className={`w-4 h-4 ${userProfile?.canViewAuditTrail ? 'text-green-600' : 'text-gray-400'}`} />
+                      <Eye className={`w-4 h-4 ${userProfile?.canViewAuditTrail ? 'text-green-600' : 'text-red-500'}`} />
                       <div>
                         <p className="font-medium text-slate-900 text-sm">Audit Trail</p>
-                        <p className="text-xs text-gray-600">
+                        <p className={`text-xs ${userProfile?.canViewAuditTrail ? 'text-gray-600' : 'text-red-600'}`}>
                           {userProfile?.canViewAuditTrail ? 'Enabled' : 'Disabled'}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canCreateProjects ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canCreateProjects ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                     <div className="flex items-center space-x-2">
-                      <FolderOpen className={`w-4 h-4 ${userProfile?.canCreateProjects ? 'text-green-600' : 'text-gray-400'}`} />
+                      <FolderOpen className={`w-4 h-4 ${userProfile?.canCreateProjects ? 'text-green-600' : 'text-red-500'}`} />
                       <div>
                         <p className="font-medium text-slate-900 text-sm">Create Projects</p>
-                        <p className="text-xs text-gray-600">
+                        <p className={`text-xs ${userProfile?.canCreateProjects ? 'text-gray-600' : 'text-red-600'}`}>
                           {userProfile?.canCreateProjects ? 'Enabled' : 'Disabled'}
                         </p>
                       </div>
                     </div>
                   </div>
-                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canViewReports ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'}`}>
+                  <div className={`p-3 rounded-lg border-2 ${userProfile?.canViewReports ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
                     <div className="flex items-center space-x-2">
-                      <FileText className={`w-4 h-4 ${userProfile?.canViewReports ? 'text-green-600' : 'text-gray-400'}`} />
+                      <FileText className={`w-4 h-4 ${userProfile?.canViewReports ? 'text-green-600' : 'text-red-500'}`} />
                       <div>
                         <p className="font-medium text-slate-900 text-sm">View Reports</p>
-                        <p className="text-xs text-gray-600">
+                        <p className={`text-xs ${userProfile?.canViewReports ? 'text-gray-600' : 'text-red-600'}`}>
                           {userProfile?.canViewReports ? 'Enabled' : 'Disabled'}
                         </p>
                       </div>

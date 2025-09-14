@@ -91,7 +91,6 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
   const [result, setResult] = useState<ImageProcessingResult | null>(null);
   const [serialNumberChanges, setSerialNumberChanges] = useState<SerialNumberChanges>({});
   const [isCompletingVerification, setIsCompletingVerification] = useState(false);
-  const [isVerifyingImage, setIsVerifyingImage] = useState(false);
   const { showToast } = useToast();
   const hasExecutedRef = useRef(false);
 
@@ -245,41 +244,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
     }
   };
 
-  // Handle image verification
-  const handleVerifyImage = async () => {
-    if (!completedImages.length || !completedImages[currentCarouselIndex]?.extractionResult?.data?.imageId) {
-      showToast('No image to verify', 'error');
-      return;
-    }
 
-    try {
-      setIsVerifyingImage(true);
-      const currentImage = completedImages[currentCarouselIndex];
-      const imageId = currentImage.extractionResult?.data?.imageId;
-
-      if (!imageId) {
-        showToast('Image ID not found', 'error');
-        return;
-      }
-
-      // Call the verification API
-      await projectAPI.verifyImage(imageId, true);
-
-      // Close the dialog first
-      onClose();
-
-      // Show toast after dialog closes with a small delay
-      setTimeout(() => {
-        showToast('Image verified successfully!', 'success');
-      }, 100);
-
-    } catch (error: any) {
-      console.error('Error verifying image:', error);
-      showToast('Failed to verify image: ' + (error.message || 'Unknown error'), 'error');
-    } finally {
-      setIsVerifyingImage(false);
-    }
-  };
 
   // Processing messages for different steps
   const uploadingMessages = [
@@ -823,11 +788,11 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                   Close
                 </Button>
                 <Button
-                  onClick={handleVerifyImage}
-                  disabled={isVerifyingImage}
+                  onClick={handleCompleteVerification}
+                  disabled={isCompletingVerification}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {isVerifyingImage ? (
+                  {isCompletingVerification ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Completing...
@@ -851,11 +816,11 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
               </Button>
               {steps[currentStep]?.status === 'completed' && (
                 <Button
-                  onClick={handleVerifyImage}
-                  disabled={isVerifyingImage}
+                  onClick={handleCompleteVerification}
+                  disabled={isCompletingVerification}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
-                  {isVerifyingImage ? (
+                  {isCompletingVerification ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Completing...

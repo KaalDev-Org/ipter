@@ -1388,7 +1388,7 @@ const UserManagement: React.FC = () => {
                       onCheckedChange={(checked) => setEditValue('canViewReports', checked)}
                     />
                     <Label htmlFor="edit-canViewReports" className="text-sm">
-                      Can View Reports
+                      Can View Project Data
                     </Label>
                   </div>
                   <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">

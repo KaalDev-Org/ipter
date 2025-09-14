@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { User, LogOut, Users, FolderOpen, Database, FileSearch, Key, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from './ui/toast';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import {
   DropdownMenu,
@@ -19,36 +20,24 @@ import { AuditLogger } from '../utils/auditLogger';
 const Navbar: React.FC = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const [activeNav, setActiveNav] = useState(() => {
-    const userRole = user?.roles?.[0] || user?.role;
-
-    // For USER role, default to upload-image (their primary function)
-    if (userRole === 'USER') {
-      return 'upload-image';
-    }
-
-    // For REVIEWER role, default to audit trail if they have permission
-    if (userRole === 'REVIEWER') {
-      if (user?.canViewAuditTrail === true) {
-        return 'view-audit-trail';
-      }
-      return 'project-data'; // Fallback
-    }
-
-    // For ADMINISTRATOR role, default to user-management
-    if (userRole === 'ADMINISTRATOR') {
-      return 'user-management';
-    }
-
-    // Fallback based on permissions
-    if (user?.canViewAuditTrail === true) return 'view-audit-trail';
-    if (user?.canCreateProjects === true) return 'project-management';
-    if (user?.canViewReports === true) return 'project-data';
-
-    // If user has no specific permissions, default to upload image
-    return 'upload-image';
-  });
+  const location = useLocation();
+  const { showToast } = useToast();
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+
+  // Function to determine active nav item based on current URL
+  const getActiveNavFromUrl = () => {
+    const pathname = location.pathname;
+
+    // Map URLs to nav item IDs
+    if (pathname === '/upload-image') return 'upload-image';
+    if (pathname === '/project-management') return 'project-management';
+    if (pathname === '/project-data') return 'project-data';
+    if (pathname === '/view-audit-trail') return 'view-audit-trail';
+    if (pathname === '/user-management') return 'user-management';
+    if (pathname === '/profile') return null; // No nav item should be active on profile page
+
+    return null; // No active nav for other pages
+  };
 
   const handleLogout = async () => {
     try {
@@ -78,6 +67,47 @@ const Navbar: React.FC = () => {
       return username.slice(0, 2).toUpperCase();
     }
     return 'U';
+  };
+
+  // Check if user has permission for a specific navigation item
+  const hasPermissionForNavItem = (itemId: string): boolean => {
+    const userRole = user?.roles?.[0] || user?.role;
+
+    switch (itemId) {
+      case 'user-management':
+        return userRole === 'ADMINISTRATOR';
+      case 'upload-image':
+        return true; // All authenticated users can upload images
+      case 'project-management':
+        return user?.canCreateProjects === true;
+      case 'project-data':
+        return user?.canViewReports === true;
+      case 'view-audit-trail':
+        return user?.canViewAuditTrail === true;
+      default:
+        return false;
+    }
+  };
+
+  // Handle navigation with permission check
+  const handleNavigation = async (item: any) => {
+    // Log navigation click
+    if (user?.username) {
+      await AuditLogger.logNavbarClick(user.username, item.label);
+    }
+
+    // Check permissions before navigating
+    if (!hasPermissionForNavItem(item.id)) {
+      showToast(`You don't have permission to access ${item.label}`, 'error');
+      return;
+    }
+
+    // Log successful navigation
+    if (user?.username) {
+      await AuditLogger.logNavigation(user.username, window.location.pathname, item.path, 'click');
+    }
+
+    navigate(item.path);
   };
 
   // Get navigation items based on user permissions from API response
@@ -174,29 +204,21 @@ const Navbar: React.FC = () => {
             <div className="flex items-center space-x-2">
               {getNavigationItems().map((item) => {
                 const IconComponent = item.icon;
+                const isActive = getActiveNavFromUrl() === item.id;
                 return (
                   <Button
                     key={item.id}
                     variant="ghost"
-                    onClick={async () => {
-                      // Log navigation click
-                      if (user?.username) {
-                        await AuditLogger.logNavbarClick(user.username, item.label);
-                        await AuditLogger.logNavigation(user.username, window.location.pathname, item.path, 'click');
-                      }
-
-                      setActiveNav(item.id);
-                      navigate(item.path);
-                    }}
+                    onClick={() => handleNavigation(item)}
                     className={`relative px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                      activeNav === item.id
+                      isActive
                         ? 'bg-z-sky/20 text-slate-900 shadow-md border border-z-sky/30'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-z-sky/10 hover:shadow-sm'
                     }`}
                   >
                     <IconComponent className="w-4 h-4 mr-2" />
                     {item.label}
-                    {activeNav === item.id && (
+                    {isActive && (
                       <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-8 h-0.5 bg-z-sky rounded-full"></div>
                     )}
                   </Button>

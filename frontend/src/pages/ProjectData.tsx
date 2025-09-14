@@ -228,9 +228,9 @@ const ProjectData: React.FC = () => {
                     ) : (
                       activeProjects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
-                          <div className="flex flex-col w-full">
-                            <span className="font-medium">{project.name}</span>
-                            <span className="text-xs text-gray-500">
+                          <div className="flex flex-col items-start w-full">
+                            <span className="font-medium text-left">{project.name}</span>
+                            <span className="text-xs text-gray-500 text-left">
                               Created: {formatDate(project.createdAt)}
                             </span>
                           </div>
@@ -263,13 +263,11 @@ const ProjectData: React.FC = () => {
                 <Card className="bg-z-light-green shadow-lg border border-gray-200 rounded-xl">
                   <CardHeader className="border-b border-gray-200 p-6 bg-z-pale-green">
                     <div className="flex items-start justify-between">
-                      <div>
-                        <CardTitle className="text-2xl font-bold text-gray-900 mb-2" style={{ fontFamily: 'Georgia, serif' }}>
+                      <div className="flex items-center space-x-3">
+                        <CardTitle className="text-2xl font-bold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
                           {selectedProject.name}
                         </CardTitle>
-                        <div className="flex items-center space-x-4">
-                          {getStatusBadge(selectedProject.status)}
-                        </div>
+                        {getStatusBadge(selectedProject.status)}
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Created by</p>
@@ -305,19 +303,19 @@ const ProjectData: React.FC = () => {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="details" className="mt-6">
+                  <TabsContent value="details" className="mt-4">
                     <Card className="bg-z-light-green shadow-lg border border-gray-200 rounded-xl">
-                      <CardContent className="p-6 space-y-8">
+                      <CardContent className="p-4 space-y-4">
 
                     {/* Shipment Details Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-blue-50 rounded-lg">
-                          <Truck className="w-5 h-5 text-blue-600" />
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                        <div className="p-1 bg-blue-50 rounded-lg">
+                          <Truck className="w-4 h-4 text-blue-600" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Shipment Details</h3>
+                        <h3 className="text-base font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Shipment Details</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
                           <p className="text-xs text-gray-500">Shipper</p>
                           <p className="text-sm font-medium">{selectedProject.shipper || 'Not specified'}</p>
@@ -338,14 +336,14 @@ const ProjectData: React.FC = () => {
                     </div>
 
                     {/* Product Details Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-green-50 rounded-lg">
-                          <Package className="w-5 h-5 text-green-600" />
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                        <div className="p-1 bg-green-50 rounded-lg">
+                          <Package className="w-4 h-4 text-green-600" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Product Details</h3>
+                        <h3 className="text-base font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Product Details</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
                           <p className="text-xs text-gray-500">Compound</p>
                           <p className="text-sm font-medium">{selectedProject.compound || 'Not specified'}</p>
@@ -366,14 +364,14 @@ const ProjectData: React.FC = () => {
                     </div>
 
                     {/* Study Information Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-purple-50 rounded-lg">
-                          <FileText className="w-5 h-5 text-purple-600" />
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                        <div className="p-1 bg-purple-50 rounded-lg">
+                          <FileText className="w-4 h-4 text-purple-600" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Study Information</h3>
+                        <h3 className="text-base font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Study Information</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <div>
                           <p className="text-xs text-gray-500">Protocol</p>
                           <p className="text-sm font-medium">{selectedProject.protocol || 'Not specified'}</p>
@@ -398,22 +396,22 @@ const ProjectData: React.FC = () => {
                     </div>
 
                     {/* Timeline Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-orange-50 rounded-lg">
-                          <Clock className="w-5 h-5 text-orange-600" />
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                        <div className="p-1 bg-orange-50 rounded-lg">
+                          <Clock className="w-4 h-4 text-orange-600" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Timeline</h3>
+                        <h3 className="text-base font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Timeline</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center space-x-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                           <div>
                             <p className="text-sm font-medium">Created</p>
                             <p className="text-xs text-gray-500">{formatDateTime(selectedProject.createdAt)}</p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2">
                           <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                           <div>
                             <p className="text-sm font-medium">Last Updated</p>
@@ -424,64 +422,64 @@ const ProjectData: React.FC = () => {
                     </div>
 
                     {/* Processing Status Section */}
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3 pb-4 border-b border-gray-100">
-                        <div className="p-2 bg-indigo-50 rounded-lg">
-                          <BarChart3 className="w-5 h-5 text-indigo-600" />
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                        <div className="p-1 bg-indigo-50 rounded-lg">
+                          <BarChart3 className="w-4 h-4 text-indigo-600" />
                         </div>
-                        <h3 className="text-lg font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Processing Status</h3>
+                        <h3 className="text-base font-semibold text-slate-900" style={{ fontFamily: 'Georgia, serif' }}>Processing Status</h3>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {/* Master Data Status */}
                         <div className="text-center">
-                          <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 ${
+                          <div className={`w-12 h-12 mx-auto rounded-full flex items-center justify-center mb-2 ${
                             selectedProject.masterDataProcessed
                               ? 'bg-green-100 text-green-600'
                               : 'bg-gray-100 text-gray-400'
                           }`}>
                             {selectedProject.masterDataProcessed ? (
-                              <CheckCircle className="w-8 h-8" />
+                              <CheckCircle className="w-6 h-6" />
                             ) : (
-                              <AlertCircle className="w-8 h-8" />
+                              <AlertCircle className="w-6 h-6" />
                             )}
                           </div>
-                          <h4 className="font-semibold text-gray-900 mb-1">Master Data</h4>
-                          <p className={`text-sm ${
+                          <h4 className="text-sm font-semibold text-gray-900 mb-1">Master Data</h4>
+                          <p className={`text-xs ${
                             selectedProject.masterDataProcessed ? 'text-green-600' : 'text-gray-500'
                           }`}>
                             {selectedProject.masterDataProcessed ? 'Processed' : 'Pending'}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500">
                             Count: {selectedProject.masterDataCount}
                           </p>
                         </div>
 
                         {/* Images Status */}
                         <div className="text-center">
-                          <div className="w-16 h-16 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
-                            <FileText className="w-8 h-8" />
+                          <div className="w-12 h-12 mx-auto rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-2">
+                            <FileText className="w-6 h-6" />
                           </div>
-                          <h4 className="font-semibold text-gray-900 mb-1">Images</h4>
-                          <p className="text-sm text-blue-600">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-1">Images</h4>
+                          <p className="text-xs text-blue-600">
                             {selectedProject.processedImages} / {selectedProject.totalImages}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500">
                             Failed: {selectedProject.failedImages}
                           </p>
                         </div>
 
                         {/* Processing Progress */}
                         <div className="text-center">
-                          <div className="w-16 h-16 mx-auto rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-3">
-                            <BarChart3 className="w-8 h-8" />
+                          <div className="w-12 h-12 mx-auto rounded-full bg-purple-100 text-purple-600 flex items-center justify-center mb-2">
+                            <BarChart3 className="w-6 h-6" />
                           </div>
-                          <h4 className="font-semibold text-gray-900 mb-1">Processing</h4>
-                          <p className="text-sm text-purple-600">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-1">Processing</h4>
+                          <p className="text-xs text-purple-600">
                             {selectedProject.processingProgress.toFixed(1)}%
                           </p>
-                          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
                             <div
-                              className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                              className="bg-purple-600 h-1 rounded-full transition-all duration-300"
                               style={{ width: `${selectedProject.processingProgress}%` }}
                             ></div>
                           </div>
@@ -489,14 +487,14 @@ const ProjectData: React.FC = () => {
 
                         {/* Master Data Progress */}
                         <div className="text-center">
-                          <div className="w-16 h-16 mx-auto rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mb-3">
-                            <Database className="w-8 h-8" />
+                          <div className="w-12 h-12 mx-auto rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mb-2">
+                            <Database className="w-6 h-6" />
                           </div>
-                          <h4 className="font-semibold text-gray-900 mb-1">Data Progress</h4>
-                          <p className="text-sm text-orange-600">
+                          <h4 className="text-sm font-semibold text-gray-900 mb-1">Data Progress</h4>
+                          <p className="text-xs text-orange-600">
                             {selectedProject.masterDataProgress.toFixed(1)}%
                           </p>
-                          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-1 mt-1">
                             <div
                               className="bg-orange-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${selectedProject.masterDataProgress}%` }}
