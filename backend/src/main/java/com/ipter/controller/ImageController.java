@@ -1,5 +1,6 @@
 package com.ipter.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -463,37 +464,93 @@ public class ImageController {
         response.put("uploadedAt", uploadResp.getUploadedAt());
         response.put("success", ocr.getSuccess());
 
-        // Default grid structure (3x5 = 15 products)
+        // Calculate total containers and average confidence from OCR results
+        int totalContainers = 0;
+        double totalConfidence = 0.0;
+        int confidenceCount = 0;
+
+        if (ocr.getContainerNumbers() != null) {
+            totalContainers = ocr.getContainerNumbers().size();
+            for (OCRResultDTO.ContainerNumberDTO container : ocr.getContainerNumbers()) {
+                if (container.getConfidence() != null) {
+                    totalConfidence += container.getConfidence();
+                    confidenceCount++;
+                }
+            }
+        }
+
+        double averageConfidence = confidenceCount > 0 ? totalConfidence / confidenceCount : 0.0;
+
+        // Use actual grid structure from OCR results if available, otherwise use defaults
         Map<String, Object> gridStructure = new HashMap<>();
-        gridStructure.put("rows", 3);
-        gridStructure.put("columns", 5);
-        gridStructure.put("total_products", 15);
+        int rows = 3;
+        int columns = 5;
+
+        if (ocr.getGridStructure() != null) {
+            if (ocr.getGridStructure().getRows() != null) {
+                rows = ocr.getGridStructure().getRows();
+            }
+            if (ocr.getGridStructure().getColumns() != null) {
+                columns = ocr.getGridStructure().getColumns();
+            }
+            // Use actual total containers from OCR results
+            gridStructure.put("total_products", totalContainers);
+        } else {
+            // Fallback to calculated total containers
+            gridStructure.put("total_products", totalContainers);
+        }
+
+        gridStructure.put("rows", rows);
+        gridStructure.put("columns", columns);
         response.put("grid_structure", gridStructure);
 
+        // Add calculated fields
+        response.put("totalContainers", totalContainers);
+        response.put("averageConfidence", averageConfidence);
+
+        // Create row data structure using actual OCR results
+        createRowDataFromOCR(response, ocr, rows, columns);
+
+        return response;
+    }
+
+    /**
+     * Create row data structure from OCR results
+     */
+    private void createRowDataFromOCR(Map<String, Object> response, OCRResultDTO ocr, int rows, int columns) {
+        // Create a map to track which containers we've used
+        List<OCRResultDTO.ContainerNumberDTO> availableContainers = new ArrayList<>();
+        if (ocr.getContainerNumbers() != null) {
+            availableContainers.addAll(ocr.getContainerNumbers());
+        }
+
+        int containerIndex = 0;
+
         // Create row data structure
-        for (int row = 1; row <= 3; row++) {
+        for (int row = 1; row <= rows; row++) {
             Map<String, Object> rowData = new HashMap<>();
-            for (int col = 1; col <= 5; col++) {
+
+            for (int col = 1; col <= columns; col++) {
                 Map<String, Object> position = new HashMap<>();
 
-                // For now, use the same container number for all positions
-                // In a real implementation, you would map the OCR results to specific positions
-                if (ocr.getContainerNumbers() != null && !ocr.getContainerNumbers().isEmpty()) {
-                    OCRResultDTO.ContainerNumberDTO firstContainer = ocr.getContainerNumbers().get(0);
-                    position.put("number", firstContainer.getNumber());
-                    position.put("confidence", formatConfidence(firstContainer.getConfidence()));
+                // Use actual container data if available
+                if (containerIndex < availableContainers.size()) {
+                    OCRResultDTO.ContainerNumberDTO container = availableContainers.get(containerIndex);
+                    position.put("number", container.getNumber());
+                    position.put("confidence", formatConfidence(container.getConfidence()));
+                    containerIndex++;
                 } else {
-                    // Fallback if no container numbers found
-                    position.put("number", "BGB-43395, 200 mg");
-                    position.put("confidence", "95%");
+                    // If we run out of actual containers, create empty positions
+                    // This maintains the grid structure even if not all positions have containers
+                    position.put("number", "");
+                    position.put("confidence", "0%");
                 }
 
                 rowData.put(String.valueOf(col), position);
             }
+
             response.put("row" + row, rowData);
         }
-
-        return response;
     }
 
     /**
@@ -501,7 +558,7 @@ public class ImageController {
      */
     private String formatConfidence(Double confidence) {
         if (confidence == null) {
-            return "95%";
+            return "unsure";
         }
         // If confidence is already a percentage (0-100), use as is
         if (confidence > 1.0) {
