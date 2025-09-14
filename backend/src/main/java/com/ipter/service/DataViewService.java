@@ -1,5 +1,7 @@
 package com.ipter.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -20,6 +22,7 @@ import com.ipter.model.ExtractedData;
 import com.ipter.model.Image;
 import com.ipter.model.MasterData;
 import com.ipter.model.Project;
+import com.ipter.model.ProjectStatus;
 import com.ipter.repository.ExtractedDataRepository;
 import com.ipter.repository.ImageRepository;
 import com.ipter.repository.MasterDataRepository;
@@ -156,14 +159,46 @@ public class DataViewService {
         
         // Calculate project summary statistics
         ProjectDataViewDTO.ProjectSummaryDTO summary = calculateProjectSummary(masterContainers, allExtractedData);
-        
+
+        // Compute completion percentage: matched / total from PDFs (master data)
+        int matched = summary != null ? summary.getMatchedSerialNos() : 0;
+        int totalFromPdf = summary != null ? summary.getTotalMasterSerialNos() : masterContainers.size();
+        BigDecimal pct = totalFromPdf > 0
+                ? BigDecimal.valueOf(matched)
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(BigDecimal.valueOf(totalFromPdf), 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        // Derive effective status without overriding ARCHIVED/DELETED
+        ProjectStatus effectiveStatus = project.getStatus();
+        if (effectiveStatus != ProjectStatus.ARCHIVED && effectiveStatus != ProjectStatus.DELETED) {
+            effectiveStatus = pct.compareTo(BigDecimal.valueOf(100)) >= 0
+                    ? ProjectStatus.COMPLETED
+                    : ProjectStatus.ACTIVE;
+        }
+
+        if (images.isEmpty()) {
+            return new ProjectDataViewDTO(
+                    project.getId(),
+                    project.getName(),
+                    project.getCreatedAt(),
+                    masterContainers,
+                    imageSummaries,
+                    null,
+                    pct.doubleValue(),
+                    effectiveStatus
+            );
+        }
+
         return new ProjectDataViewDTO(
             project.getId(),
             project.getName(),
             project.getCreatedAt(),
             masterContainers,
             imageSummaries,
-            summary
+            summary,
+            pct.doubleValue(),
+            effectiveStatus
         );
     }
     

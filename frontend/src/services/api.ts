@@ -559,6 +559,16 @@ export interface ProjectViewDataResponse {
   masterData: string[];
   images: ImageDataSummary[];
   summary: ProjectSummary;
+  /**
+   * Completion percentage calculated as (matched / total from PDFs) * 100
+   * Rounded to two decimals by backend; may be 0 if no PDF data exists
+   */
+  completionPercentage: number;
+  /**
+   * Effective project status derived from completion rules.
+   * Preserves ARCHIVED/DELETED, auto-COMPLETED at 100%, ACTIVE otherwise.
+   */
+  status: ProjectStatus;
 }
 
 export interface ImageDataSummary {

@@ -29,15 +29,15 @@ import com.ipter.util.ImageProcessingUtil;
  */
 @Service
 public class GeminiService {
-    
+
     private static final Logger logger = LoggerFactory.getLogger(GeminiService.class);
-    
+
     @Value("${gemini.api.key}")
     private String apiKey;
-    
+
     @Value("${gemini.api.url:https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent}")
     private String apiUrl;
-    
+
     private final ObjectMapper objectMapper;
 
     public GeminiService(RestTemplate restTemplate, ObjectMapper objectMapper) {
@@ -107,7 +107,7 @@ public class GeminiService {
             return createErrorResult(filename, "PDF extraction failed: " + e.getMessage());
         }
     }
-    
+
     /**
      * Create Gemini API request for image content
      */
@@ -197,7 +197,7 @@ public class GeminiService {
         if (exampleNumber != null && !exampleNumber.trim().isEmpty()) {
             prompt.append("\n\nEXAMPLE FORMAT: The container numbers should follow a similar format to this example: ")
                   .append(exampleNumber.trim())
-                  .append("\nUse this example to help identify the correct pattern and format of container numbers in the document.\n");
+                  .append("\nUse this example to help identify the correct pattern and format of container numbers in the document. Strictly do not send any other format serials or larger numbered serials, the example serial digit count will always be same that you must look for\n");
         }
 
         prompt.append("""
@@ -252,7 +252,7 @@ public class GeminiService {
 
         return prompt.toString();
     }
-    
+
     /**
      * Create the prompt for container number extraction
      */
@@ -266,152 +266,86 @@ public class GeminiService {
     private String createContainerExtractionPrompt(String exampleNumber) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("""
-            CRITICAL: You are analyzing an image containing pharmaceutical products or medical containers arranged in a grid pattern. Your PRIMARY task is to accurately detect the grid structure and extract serial numbers from each position.
-            """);
+Title: Image Grid Serial Extraction (STRICT JSON)
+
+Core Task
+- Analyze the provided image of pharmaceutical products arranged in a grid.
+- Your task is to detect the grid layout and extract the serial number for each container.
+""");
 
         if (exampleNumber != null && !exampleNumber.trim().isEmpty()) {
-            prompt.append("\nEXAMPLE FORMAT: The container numbers should follow a similar format to this example: ")
+            prompt.append("\nOptional Context\n- If provided, use this example to bias recognition toward the expected pattern: EXAMPLE_NUMBER: ")
                   .append(exampleNumber.trim())
-                  .append("\nUse this example to help identify the correct pattern and format of container numbers in the image.\n");
+                  .append("\n");
         }
 
         prompt.append("""
 
-            GRID DETECTION (HIGHEST PRIORITY):
-            1. SCAN THE ENTIRE IMAGE systematically from top to bottom, left to right
-            2. Count the EXACT number of rows and columns in the product grid
-            3. Look carefully at the physical arrangement - products may be in various configurations (2x3, 3x4, 4x5, 5x6, 6x8, etc.)
-            4. Count ALL visible product positions, even if some serial numbers are unreadable
-            5. The grid structure MUST reflect the actual physical layout you observe
-            6. Do NOT stop counting rows prematurely - scan the ENTIRE image including bottom edges
-            7. VERIFY your row count by scanning from top to bottom multiple times
-            8. Include ALL rows, even if the bottom row is partially visible or has different lighting
-            9. Do NOT limit yourself to small grids - accurately count larger arrangements (up to 10 columns, 8 rows if needed)
-            10. CRITICAL: If you see 5 rows, report 5 rows. If you see 6 rows, report 6 rows. Count what you actually see.
+## 🎯 Grid Analysis (Do this first)
+1) Scan the entire image top-to-bottom, left-to-right.
+2) Count the exact number of physical rows and columns based on container positions (not text).
+3) Maximum supported dimensions: up to 8 rows and up to 8 columns.
+4) The count must reflect the physical layout you actually see.
+5) Do not skip bottom or edge rows; include partially visible rows if clearly part of the grid.
 
-            SERIAL NUMBER EXTRACTION:
-            1. CAREFULLY examine each product/container in the image - they are DIFFERENT products with DIFFERENT serial numbers
-            2. DO NOT repeat the same serial number multiple times - each product has its own unique identifier
-            3. Look for serial numbers, lot numbers, batch numbers, or container identifiers on each individual product
-            4. Serial numbers may be in various formats: alphanumeric codes, numbers with letters, etc.
-            5. If you cannot clearly read a serial number, provide your best estimate and reduce the confidence accordingly
-            6. If a serial number is unclear or partially obscured, still attempt to extract it but lower the confidence (e.g., 60-80%)
-            7. NEVER make up or duplicate serial numbers - each extracted number must correspond to a visible product
-            8. For positions where you cannot extract any serial number, omit that position from the row data
+Report (in the output JSON):
+- grid_structure.rows = total rows detected
+- grid_structure.columns = total columns detected
+- grid_structure.total_products = rows × columns
 
-            SYSTEMATIC APPROACH FOR COMPLETE DETECTION:
-            - STEP 1: Scan the ENTIRE image from top edge to bottom edge to count total rows
-            - STEP 2: Scan from left edge to right edge to count total columns
-            - STEP 3: Count rows from top to bottom (row1, row2, row3, row4, row5, row6, row7, row8...)
-            - STEP 4: Count columns from left to right (position 1, 2, 3, 4, 5, 6, 7, 8...)
-            - STEP 5: Work systematically through each position in each row
-            - STEP 6: Extract serial numbers where possible, skip positions where impossible
-            - STEP 7: DOUBLE-CHECK that you have included ALL visible rows, especially the bottom row
-            - CRITICAL: Do not stop at row 4 if there is a row 5. Do not stop at row 5 if there is a row 6.
+## 🔢 Serial Number Extraction
+- For each visible position in the grid, attempt to extract the container’s serial number.
+- Extract only six-to-eight digit numeric codes (digits only). Ignore text like brand names, units, dates, words like lot/batch, or anything non-numeric.
+- Each container should have a unique serial. Do not duplicate the same serial across positions.
+- If a serial number is unreadable or does not meet the numeric rule, omit that position from the row data (do not guess, do not fabricate, do not return “N/A”).
 
-            RESPONSE FORMAT:
-            You MUST return results in this EXACT JSON format. Adapt the number of rows and positions based on what you actually see.
-            CRITICAL: Each position must have its own individual confidence score based on visual analysis.
+## ✅ Confidence Scoring (simple rubric)
+- 95–100%: Perfectly clear, sharp, straight-on, high contrast
+- 85–94%: Clear with minor imperfections (slight angle, mild blur/glare)
+- 70–84%: Readable but noticeable issues (blur, lighting, partial occlusion)
+- 50–69%: Barely readable, high uncertainty
+- Below 50%: Omit the position (do not include in output)
 
-            EXAMPLE for a 5x6 grid (5 rows, 6 columns, 30 total products):
-            {
-              "grid_structure": {
-                "rows": 5,
-                "columns": 6,
-                "total_products": 30
-              },
-              "row1": {
-                "1": { "number": "121518", "confidence": "92%" },
-                "2": { "number": "121519", "confidence": "93%" },
-                "3": { "number": "121520", "confidence": "94%" },
-                "4": { "number": "121521", "confidence": "95%" },
-                "5": { "number": "121522", "confidence": "93%" },
-                "6": { "number": "121523", "confidence": "92%" }
-              },
-              "row2": { ... 6 positions ... },
-              "row3": { ... 6 positions ... },
-              "row4": { ... 6 positions ... },
-              "row5": { ... 6 positions ... }
-            }
+Represent confidence as a percentage string with “%” (e.g., "87%").
 
-            CRITICAL: If you see 5 rows, you MUST include row1, row2, row3, row4, AND row5 in your response.
+## ✅ Consistency & Completeness Checks (before output)
+- Ensure grid_structure.rows × grid_structure.columns == grid_structure.total_products.
+- Ensure you include ALL rows: row1..rowN where N = grid_structure.rows.
+- In each row, use only keys "1".."M" where M = grid_structure.columns.
+- If you detect 4 rows (e.g., layouts like 4×5), you MUST include row4 even if some positions are omitted.
+- Do not return identical confidence scores for all positions; vary them based on actual visual quality.
 
-            MANDATORY CONFIDENCE REQUIREMENTS:
-            - Each container number MUST have its own individual confidence percentage
-            - Confidence scores MUST vary based on actual visual quality assessment
-            - DO NOT use the same confidence score for multiple positions
-            - DO NOT default to 95% - analyze each position individually
-            - Confidence scores should realistically range from 60% to 99%
 
-            CRITICAL REQUIREMENTS FOR COMPLETE DETECTION:
-            - The "grid_structure" field is MANDATORY and must contain the EXACT dimensions you observe
-            - Include ALL rows you see, even if some positions have no extractable serial numbers
-            - NEVER skip or omit rows - if you see 5 rows, include all 5 rows (row1, row2, row3, row4, row5)
-            - NEVER stop counting prematurely - scan the entire image including edges and corners
-            - Only include positions in row data where you can extract a serial number
-            - Maximum supported: 10 columns, 8 rows (adjust based on actual image)
-            - If the actual grid is 5x6, your response MUST include all 5 rows with 6 positions each
-            - VERIFY: Count your rows in the final response - it should match the grid_structure.rows value
+## 📄 Output Format (STRICT – JSON only)
+- Output must be a single valid JSON object, no Markdown, no comments, no extra keys.
+- Use exactly this structure:
+  - grid_structure: { rows, columns, total_products }
+  - row1, row2, … rowN objects (N = grid_structure.rows)
+  - Within each row, positions are string keys "1"…"M" (M = grid_structure.columns)
+  - Include only positions where a valid serial number was extracted
 
-            CONFIDENCE CALCULATION - CRITICAL FOR ACCURACY:
-            You MUST analyze each container number's visual quality and assign realistic confidence scores based on the following detailed criteria:
+Example (for a 3×4 grid)
+{
+  "grid_structure": { "rows": 3, "columns": 4, "total_products": 12 },
+  "row1": {
+    "1": { "number": "123456", "confidence": "92%" },
+    "2": { "number": "234567", "confidence": "89%" }
+  },
+  "row2": {
+    "1": { "number": "345678", "confidence": "85%" }
+  },
+  "row3": {
+    "4": { "number": "456789", "confidence": "78%" }
+  }
+}
 
-            VISUAL QUALITY ASSESSMENT FACTORS:
-            1. IMAGE RESOLUTION: Higher resolution = higher confidence potential
-            2. LIGHTING CONDITIONS: Good lighting = higher confidence, shadows/glare = lower confidence
-            3. TEXT CLARITY: Sharp, crisp text = higher confidence, blurry text = lower confidence
-            4. OCCLUSION: Fully visible = higher confidence, partially hidden = lower confidence
-            5. VIEWING ANGLE: Straight-on view = higher confidence, angled view = lower confidence
-            6. CONTRAST: High contrast between text and background = higher confidence
-            7. FOCUS: In-focus text = higher confidence, out-of-focus = lower confidence
-            8. WEAR/DAMAGE: Clean labels = higher confidence, worn/damaged labels = lower confidence
-
-            CONFIDENCE SCORING GUIDELINES:
-            - 95-99%: Perfect conditions - crystal clear, high resolution, excellent lighting, straight angle, sharp focus, high contrast
-            - 90-94%: Excellent conditions - very clear text with minor imperfections (slight angle, minor lighting issues)
-            - 85-89%: Good conditions - clearly readable with some quality issues (moderate blur, lighting variations)
-            - 80-84%: Fair conditions - readable but with noticeable quality issues (some blur, poor lighting, slight occlusion)
-            - 75-79%: Marginal conditions - readable but challenging (significant blur, poor contrast, partial occlusion)
-            - 70-74%: Poor conditions - barely readable, multiple quality issues present
-            - 65-69%: Very poor conditions - highly uncertain reading, severe quality issues
-            - 60-64%: Extremely poor conditions - best guess only, very low certainty
-            - Below 60%: Do not include unless absolutely necessary
-
-            REALISTIC CONFIDENCE DISTRIBUTION:
-            - DO NOT default to 95% for all extractions
-            - Most real-world images will have varying quality across different positions
-            - Expect confidence scores to range from 60% to 99% based on actual visual conditions
-            - Consider that different positions in the same image may have different lighting, focus, or angles
-            - Be honest about uncertainty - it's better to report lower confidence than to overstate accuracy
-
-            SPECIFIC CONFIDENCE ASSESSMENT PROCESS:
-            For each container number, ask yourself:
-            1. How clear and sharp is this specific text?
-            2. Are there any shadows, reflections, or glare affecting this area?
-            3. Is this text at an angle or straight-on?
-            4. Is the entire number visible or partially obscured?
-            5. How good is the contrast between the text and background?
-            6. Are there any focus issues in this specific area?
-
-            Base your confidence percentage on honest answers to these questions.
-
-            QUALITY CONTROL:
-            - Verify the grid structure matches the physical layout exactly
-            - Ensure no duplicate serial numbers in your response
-            - Double-check that each extracted serial number corresponds to a visible product
-            - If unsure about a character, provide your best interpretation
-
-            FINAL CRITICAL REMINDERS:
-            1. Focus on ACCURATE and COMPLETE GRID DETECTION first, then UNIQUE SERIAL EXTRACTION
-            2. SCAN THE ENTIRE IMAGE - do not miss any rows, especially the bottom row
-            3. The grid structure is more important than extracting every serial number
-            4. VERIFY your row count matches what you actually see in the image
-            5. If you detect 5 rows in grid_structure, you MUST include row1, row2, row3, row4, AND row5 in your response
-            6. CONFIDENCE SCORES MUST BE REALISTIC - analyze each position individually
-            7. DO NOT use 95% as a default - vary confidence based on actual visual quality
-            8. It's better to report honest uncertainty than false high confidence
-            9. DOUBLE-CHECK: Count your rows in the final JSON - missing rows = incomplete extraction
-            """);
+Strict Rules
+- Return ONLY the JSON object described above.
+- Do NOT wrap in code fences.
+- Do NOT include commentary, explanations, or extra fields.
+- Do NOT fabricate numbers.
+- Omit positions you cannot read with at least 50% confidence.
+""");
 
         return prompt.toString();
     }
@@ -429,7 +363,7 @@ public class GeminiService {
         }
         return String.join(", ", missing);
     }
-    
+
     /**
      * Create safety settings for Gemini API
      */
@@ -441,7 +375,7 @@ public class GeminiService {
             new GeminiRequestDTO.SafetySetting("HARM_CATEGORY_DANGEROUS_CONTENT", "BLOCK_MEDIUM_AND_ABOVE")
         );
     }
-    
+
     /**
      * Call Gemini API using WebClient to better handle large JSON responses
      */
@@ -470,7 +404,7 @@ public class GeminiService {
             throw new RuntimeException("Gemini API call failed", e);
         }
     }
-    
+
     /**
      * Process Gemini response and convert to OCRResultDTO
      */
@@ -479,13 +413,13 @@ public class GeminiService {
             if (response.getCandidates() == null || response.getCandidates().isEmpty()) {
                 return createErrorResult(filename, "No response candidates from Gemini API");
             }
-            
+
             GeminiResponseDTO.Candidate candidate = response.getCandidates().get(0);
-            if (candidate.getContent() == null || candidate.getContent().getParts() == null || 
+            if (candidate.getContent() == null || candidate.getContent().getParts() == null ||
                 candidate.getContent().getParts().isEmpty()) {
                 return createErrorResult(filename, "No content in Gemini API response");
             }
-            
+
             StringBuilder sb = new StringBuilder();
             if (candidate.getContent() != null && candidate.getContent().getParts() != null) {
                 for (GeminiResponseDTO.Part part : candidate.getContent().getParts()) {
@@ -499,10 +433,10 @@ public class GeminiService {
 
             // Parse the structured JSON response
             ContainerExtractionResultDTO extractionResult = parseContainerExtractionResult(jsonResponse);
-            
+
             // Convert to OCRResultDTO
             return convertToOCRResult(extractionResult, filename, response);
-            
+
         } catch (Exception e) {
             logger.error("Error processing Gemini response: {}", e.getMessage());
             return createErrorResult(filename, "Failed to process Gemini response: " + e.getMessage());

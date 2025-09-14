@@ -182,6 +182,14 @@ const ProjectData: React.FC = () => {
     });
   };
 
+  // Derived completion and effective status for UI (fallback-safe)
+  const effectiveStatus = projectViewData?.status ?? selectedProject?.status ?? ProjectStatus.ACTIVE;
+  const totalFromPdf = projectViewData?.summary?.totalMasterSerialNos ?? 0;
+  const matchedFromPdf = projectViewData?.summary?.matchedSerialNos ?? 0;
+  const completionPct = projectViewData?.completionPercentage ?? (
+    totalFromPdf > 0 ? Math.round((matchedFromPdf / totalFromPdf) * 10000) / 100 : 0
+  );
+
   return (
     <div className="min-h-screen bg-z-ivory">
       {/* Header Section */}
@@ -527,7 +535,7 @@ const ProjectData: React.FC = () => {
                               IPTER - Uploaded Data View
                             </h3>
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="bg-white p-4 rounded-lg shadow-sm">
                               <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -561,6 +569,42 @@ const ProjectData: React.FC = () => {
                                 </div>
                               </div>
                             </div>
+                              {/* Completion & Status */}
+                              <div className="bg-white p-4 rounded-lg shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                                      <BarChart3 className="w-5 h-5 text-purple-600" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm text-gray-600">Completion</p>
+                                      <p className="text-2xl font-bold text-gray-900">{completionPct.toFixed(2)}%</p>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    {getStatusBadge(effectiveStatus)}
+                                  </div>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className={`h-2 rounded-full transition-all duration-500 ${
+                                      completionPct >= 100 ? 'bg-green-600' :
+                                      completionPct >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, Math.max(0, completionPct))}%` }}
+                                  ></div>
+                                </div>
+                                <p className="mt-2 text-xs text-gray-500">
+                                  Calculated as matched / total from PDFs.
+                                </p>
+                                {completionPct >= 100 && (
+                                  <div className="mt-2 text-xs font-medium text-green-700 flex items-center space-x-1">
+                                    <CheckCircle className="w-4 h-4" />
+                                    <span>All containers matched. Project is complete.</span>
+                                  </div>
+                                )}
+                              </div>
+
                           </div>
                         </div>
 
