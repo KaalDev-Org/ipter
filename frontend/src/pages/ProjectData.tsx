@@ -382,7 +382,7 @@ const ProjectData: React.FC = () => {
                         </div>
                         <div>
                           <p className="text-xs text-gray-500">Example Container Number</p>
-                          <p className="text-sm font-medium font-mono bg-gray-50 px-2 py-1 rounded border">
+                          <p className="text-sm font-medium">
                             {selectedProject.exampleContainerNumber || 'Not provided'}
                           </p>
                         </div>
@@ -650,7 +650,7 @@ const ProjectData: React.FC = () => {
                                                   <div className="relative bg-gray-100 rounded-lg overflow-hidden h-96">
                                                     {image.imageUrl ? (
                                                       <img
-                                                        src={`http://localhost:8080${image.imageUrl}`}
+                                                        src={image.imageUrl}
                                                         alt={image.imageName}
                                                         className="w-full h-full object-contain"
                                                         onError={(e) => {

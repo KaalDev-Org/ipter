@@ -12,7 +12,8 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
-  Grid3X3
+  Grid3X3,
+  RefreshCw
 } from 'lucide-react';
 import { projectAPI, GeminiExtractionResponse, SerialNumberUpdate, SerialNumberUpdateRequest } from '../services/api';
 import { useToast } from './ui/toast';
@@ -91,6 +92,9 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
   const [result, setResult] = useState<ImageProcessingResult | null>(null);
   const [serialNumberChanges, setSerialNumberChanges] = useState<SerialNumberChanges>({});
   const [isCompletingVerification, setIsCompletingVerification] = useState(false);
+  const [retryingImages, setRetryingImages] = useState<Set<string>>(new Set());
+  const [retriedButNotViewed, setRetriedButNotViewed] = useState<Set<string>>(new Set());
+  const [retriedImageIndices, setRetriedImageIndices] = useState<Set<number>>(new Set());
   const { showToast } = useToast();
   const hasExecutedRef = useRef(false);
 
@@ -116,11 +120,9 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
     });
   };
 
-  // Complete verification and save changes
+  // Complete verification for current image only
   const handleCompleteVerification = async () => {
-    console.log('🔥 handleCompleteVerification called!');
-    console.log('🔥 Current serialNumberChanges:', serialNumberChanges);
-    console.log('🔥 Number of images with changes:', Object.keys(serialNumberChanges).length);
+    console.log('🔥 handleCompleteVerification called for current image!');
 
     // Prevent multiple simultaneous calls
     if (isCompletingVerification) {
@@ -134,36 +136,41 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
       return;
     }
 
-    console.log('✅ Starting verification with changes:', serialNumberChanges);
-    console.log('✅ Project ID:', projectId);
+    const currentImage = completedImages[currentCarouselIndex];
+    if (!currentImage) {
+      showToast('Error: No image selected for verification', 'error');
+      return;
+    }
+
+    const backendImageId = currentImage.extractionResult?.imageId;
+    if (!backendImageId) {
+      showToast('Error: Image ID not found', 'error');
+      return;
+    }
+
+    console.log('✅ Starting verification for image:', currentImage.file.name);
+    console.log('📊 Backend Image ID:', backendImageId);
 
     // Check authentication status
     const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('userRole');
-    console.log('🔑 Auth Token exists:', !!token);
-    console.log('👤 User Role:', userRole);
-
     if (!token) {
       console.error('❌ No authentication token found');
       showToast('Authentication error: Please log in again', 'error');
-      setIsCompletingVerification(false);
       return;
     }
 
     setIsCompletingVerification(true);
 
     try {
-      // Check if there are any changes to save
-      if (Object.keys(serialNumberChanges).length === 0) {
-        showToast('No changes to save. Please edit some serial numbers first.', 'info');
-        setIsCompletingVerification(false);
-        return;
-      }
+      // Get changes for current image only (if any)
+      const currentImageChanges = serialNumberChanges[backendImageId] || {};
+      console.log('🔄 Processing verification for image:', backendImageId, 'with changes:', currentImageChanges);
 
-      const updatePromises = Object.entries(serialNumberChanges).map(async ([imageId, changes]) => {
-        console.log('Processing image:', imageId, 'with changes:', changes);
+      // Process changes for current image only (if any)
+      if (Object.keys(currentImageChanges).length > 0) {
+        console.log('Processing changes for current image:', backendImageId, 'with changes:', currentImageChanges);
 
-        const updatedSerials: SerialNumberUpdate[] = Object.values(changes).map(change => ({
+        const updatedSerials: SerialNumberUpdate[] = Object.values(currentImageChanges).map(change => ({
           row: change.row,
           position: change.position,
           serial_number: change.serialNumber,
@@ -171,76 +178,155 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
           confidence: '100%' // User-modified entries get 100% confidence
         }));
 
-        console.log('Updated serials for image', imageId, ':', updatedSerials);
+        console.log('Updated serials for current image:', updatedSerials);
 
-        if (updatedSerials.length > 0) {
-          const request: SerialNumberUpdateRequest = {
-            image_id: imageId,
-            project_id: projectId,
-            updated_serials: updatedSerials
-          };
+        const request: SerialNumberUpdateRequest = {
+          image_id: backendImageId,
+          project_id: projectId,
+          updated_serials: updatedSerials
+        };
 
-          console.log('Making API call with request:', request);
+        console.log('Making API call with request:', request);
 
-          try {
-            const response = await projectAPI.updateSerialNumbers(request);
-            console.log('✅ API response for image', imageId, ':', response);
-            return response;
-          } catch (error) {
-            console.error('❌ API call failed for image', imageId, ':', error);
-
-            // Handle specific error types
-            const apiError = error as any;
-            if (apiError.response?.status === 401) {
-              console.error('🔒 Authentication error - user may not have permission or token expired');
-              showToast('Authentication error: Please check your permissions or try logging in again', 'error');
-            } else if (apiError.response?.status === 403) {
-              console.error('🚫 Authorization error - user role may not have access');
-              showToast('Access denied: You may not have permission to update serial numbers', 'error');
-            } else {
-              console.error('🔥 Unexpected error:', apiError.message || 'Unknown error');
-              showToast(`Error updating image ${imageId}: ${apiError.message || 'Unknown error'}`, 'error');
-            }
-
-            throw error;
+        try {
+          const response = await projectAPI.updateSerialNumbers(request);
+          console.log('✅ API response for current image:', response);
+        } catch (error) {
+          console.error('❌ API call failed for current image:', error);
+          const apiError = error as any;
+          if (apiError.response?.status === 401) {
+            showToast('Authentication error: Please check your permissions or try logging in again', 'error');
+          } else if (apiError.response?.status === 403) {
+            showToast('Access denied: You may not have permission to update serial numbers', 'error');
+          } else {
+            showToast(`Error updating image: ${apiError.message || 'Unknown error'}`, 'error');
           }
+          throw error;
         }
-        console.log('No serials to update for image:', imageId);
-        return null;
+      }
+
+      // Mark image as verified by calling the verification API
+      await projectAPI.verifyImage(backendImageId, true);
+
+      // Remove the verified image from the list and clear its changes
+      setProcessedImages(prev => prev.filter(img => img.extractionResult?.imageId !== backendImageId));
+
+      setSerialNumberChanges(prev => {
+        const updated = { ...prev };
+        delete updated[backendImageId];
+        return updated;
       });
 
-      const results = await Promise.all(updatePromises);
-      const successfulUpdates = results.filter(result => result?.success).length;
+      // Smooth transition to next image
+      const remainingImages = completedImages.filter(img => img.extractionResult?.imageId !== backendImageId);
 
-      if (successfulUpdates > 0) {
-        showToast(`Successfully updated ${successfulUpdates} image(s)`, 'success');
-
-        // Call onComplete if provided
-        if (onComplete) {
-          const totalUpdatedSerials = Object.values(serialNumberChanges).reduce((total, changes) =>
-            total + Object.keys(changes).length, 0
-          );
-
-          // If we have a result object, use it; otherwise create a new one
-          const completionResult = result || {
-            success: true,
-            message: `Successfully updated ${successfulUpdates} image(s) with ${totalUpdatedSerials} serial number changes`,
-            processedImages: processedImages,
-            totalContainers: totalUpdatedSerials
-          };
-
-          onComplete(completionResult);
+      if (remainingImages.length > 0) {
+        // Adjust carousel index if needed
+        if (currentCarouselIndex >= remainingImages.length) {
+          setCurrentCarouselIndex(remainingImages.length - 1);
         }
-
-        onClose();
+        showToast(`Image "${currentImage.file.name}" verified successfully! ${remainingImages.length} images remaining.`, 'success');
       } else {
-        showToast('No changes were saved', 'info');
+        // All images verified - close dialog
+        showToast('All images verified successfully!', 'success');
+        onClose();
       }
+
     } catch (error) {
       console.error('Error completing verification:', error);
-      showToast('Failed to save verification changes', 'error');
+      showToast('Failed to complete verification', 'error');
     } finally {
       setIsCompletingVerification(false);
+    }
+  };
+
+  // Handle retry for a specific image
+  const handleRetryImage = async (imageIndex: number) => {
+    const imageToRetry = completedImages[imageIndex];
+    if (!imageToRetry || !projectId) {
+      showToast('Error: Cannot retry image processing', 'error');
+      return;
+    }
+
+    const backendImageId = imageToRetry.extractionResult?.imageId;
+    if (!backendImageId) {
+      showToast('Error: Image ID not found', 'error');
+      return;
+    }
+
+    try {
+      console.log('🔄 Retrying AI processing for image:', imageToRetry.file.name);
+
+      // Add image to retrying set for visual feedback
+      setRetryingImages(prev => new Set(prev).add(backendImageId));
+
+      // Auto-navigate to next image immediately when retry starts (so user can continue working)
+      const totalImages = completedImages.length;
+      if (totalImages > 1) {
+        console.log('Auto-navigating away from retrying image immediately');
+        // Navigate to next image, or previous if this is the last image
+        const nextIndex = imageIndex < totalImages - 1 ? imageIndex + 1 : imageIndex - 1;
+        setCurrentCarouselIndex(nextIndex);
+        console.log('Auto-navigated to image index:', nextIndex);
+      }
+
+      // Clear any changes for this image
+      setSerialNumberChanges(prev => {
+        const updated = { ...prev };
+        delete updated[backendImageId];
+        return updated;
+      });
+
+      // Keep the image in completed state but mark it as retrying
+      // Don't remove it from the list to maintain smooth UX
+
+      showToast(`Reprocessing "${imageToRetry.file.name}"...`, 'info');
+
+      // Call the API to reprocess this specific image
+      const extractionResult = await projectAPI.extractContainersGemini(projectId, imageToRetry.file);
+
+      // Update the processed image with new results
+      setProcessedImages(prev =>
+        prev.map(img =>
+          img.id === imageToRetry.id
+            ? {
+                ...img,
+                status: 'completed',
+                extractionResult: extractionResult
+              }
+            : img
+        )
+      );
+
+      // Remove from retrying set
+      setRetryingImages(prev => {
+        const updated = new Set(prev);
+        updated.delete(backendImageId);
+        return updated;
+      });
+
+      // Mark the retried image index as needing attention
+      console.log('Retry completed - Retried image index:', imageIndex);
+      setRetriedImageIndices(prev => {
+        const updated = new Set(prev);
+        updated.add(imageIndex);
+        console.log('Added to retriedImageIndices:', imageIndex, 'Updated set:', updated);
+        return updated;
+      });
+
+      showToast(`"${imageToRetry.file.name}" reprocessed successfully! Check the navigation arrows for red dots.`, 'success');
+
+    } catch (error: any) {
+      console.error('Error retrying image:', error);
+
+      // Remove from retrying set
+      setRetryingImages(prev => {
+        const updated = new Set(prev);
+        updated.delete(backendImageId);
+        return updated;
+      });
+
+      showToast('Failed to retry image processing: ' + (error.message || 'Unknown error'), 'error');
     }
   };
 
@@ -524,15 +610,37 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
   };
 
   const nextCarousel = () => {
-    setCurrentCarouselIndex((prev) =>
-      prev < processedImages.filter(img => img.status === 'completed').length - 1 ? prev + 1 : 0
-    );
+    const newIndex = currentCarouselIndex < processedImages.filter(img => img.status === 'completed').length - 1 ? currentCarouselIndex + 1 : 0;
+    console.log(`Next carousel: ${currentCarouselIndex} -> ${newIndex}`);
+    setCurrentCarouselIndex(newIndex);
+
+    // Clear "retried but not viewed" status for the new image being viewed
+    if (retriedImageIndices.has(newIndex)) {
+      console.log(`Removing red dot for viewed image index: ${newIndex}`);
+      setRetriedImageIndices(prevSet => {
+        const updated = new Set(prevSet);
+        updated.delete(newIndex);
+        console.log(`Updated retriedImageIndices after removal:`, updated);
+        return updated;
+      });
+    }
   };
 
   const prevCarousel = () => {
-    setCurrentCarouselIndex((prev) =>
-      prev > 0 ? prev - 1 : processedImages.filter(img => img.status === 'completed').length - 1
-    );
+    const newIndex = currentCarouselIndex > 0 ? currentCarouselIndex - 1 : processedImages.filter(img => img.status === 'completed').length - 1;
+    console.log(`Prev carousel: ${currentCarouselIndex} -> ${newIndex}`);
+    setCurrentCarouselIndex(newIndex);
+
+    // Clear "retried but not viewed" status for the new image being viewed
+    if (retriedImageIndices.has(newIndex)) {
+      console.log(`Removing red dot for viewed image index: ${newIndex}`);
+      setRetriedImageIndices(prevSet => {
+        const updated = new Set(prevSet);
+        updated.delete(newIndex);
+        console.log(`Updated retriedImageIndices after removal:`, updated);
+        return updated;
+      });
+    }
   };
 
   const completedImages = processedImages.filter(img => img.status === 'completed');
@@ -548,7 +656,11 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-6xl max-h-[95vh] overflow-y-auto">
+      <DialogContent
+        className="sm:max-w-6xl max-h-[95vh] overflow-y-auto"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center space-x-3">
             <Package className="w-6 h-6 text-blue-600" />
@@ -726,32 +838,109 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                         <span>Image Verification Results</span>
                       </CardTitle>
                       <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={prevCarousel}
-                          disabled={completedImages.length <= 1}
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </Button>
+                        <div className="relative">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={prevCarousel}
+                            disabled={completedImages.length <= 1}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </Button>
+                          {/* Dot indicators for images on the left */}
+                          {(() => {
+                            const hasLeftDot = completedImages.some((img, index) => {
+                              if (index >= currentCarouselIndex) return false;
+                              const imageId = img.extractionResult?.imageId;
+                              if (!imageId) return false;
+                              const hasRetrying = retryingImages.has(imageId);
+                              const hasRetried = retriedImageIndices.has(index);
+                              console.log(`Left dot check - Image ${index} (${imageId}): retrying=${hasRetrying}, retried=${hasRetried}`);
+                              return hasRetrying || hasRetried;
+                            });
+                            console.log(`Left dot visible: ${hasLeftDot}`);
+                            return hasLeftDot;
+                          })() && (
+                            <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
+                              completedImages.some((img, index) =>
+                                index < currentCarouselIndex &&
+                                img.extractionResult?.imageId &&
+                                retryingImages.has(img.extractionResult.imageId)
+                              ) ? 'bg-orange-500 animate-pulse' : 'bg-red-500'
+                            }`}></div>
+                          )}
+                        </div>
                         <span className="text-sm text-gray-600">
                           {currentCarouselIndex + 1} of {completedImages.length}
                         </span>
+                        <div className="relative">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={nextCarousel}
+                            disabled={completedImages.length <= 1}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </Button>
+                          {/* Dot indicators for images on the right */}
+                          {(() => {
+                            const hasRightDot = completedImages.some((img, index) => {
+                              if (index <= currentCarouselIndex) return false;
+                              const imageId = img.extractionResult?.imageId;
+                              if (!imageId) return false;
+                              const hasRetrying = retryingImages.has(imageId);
+                              const hasRetried = retriedImageIndices.has(index);
+                              console.log(`Right dot check - Image ${index} (${imageId}): retrying=${hasRetrying}, retried=${hasRetried}`);
+                              return hasRetrying || hasRetried;
+                            });
+                            console.log(`Right dot visible: ${hasRightDot}`);
+                            return hasRightDot;
+                          })() && (
+                            <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full ${
+                              completedImages.some((img, index) =>
+                                index > currentCarouselIndex &&
+                                img.extractionResult?.imageId &&
+                                retryingImages.has(img.extractionResult.imageId)
+                              ) ? 'bg-orange-500 animate-pulse' : 'bg-red-500'
+                            }`}></div>
+                          )}
+                        </div>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={nextCarousel}
-                          disabled={completedImages.length <= 1}
+                          onClick={() => handleRetryImage(currentCarouselIndex)}
+                          disabled={isCompletingVerification || (!!completedImages[currentCarouselIndex]?.extractionResult?.imageId && retryingImages.has(completedImages[currentCarouselIndex]?.extractionResult?.imageId || ''))}
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                         >
-                          <ChevronRight className="w-4 h-4" />
+                          {completedImages[currentCarouselIndex]?.extractionResult?.imageId && retryingImages.has(completedImages[currentCarouselIndex]?.extractionResult?.imageId || '') ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                              Retrying...
+                            </>
+                          ) : (
+                            <>
+                              <RefreshCw className="w-4 h-4 mr-1" />
+                              Retry AI
+                            </>
+                          )}
                         </Button>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-6">
                     {completedImages[currentCarouselIndex] && (
-                      <div className="space-y-6">
-
+                      <div className="space-y-6 relative">
+                        {/* Retry Processing Overlay */}
+                        {completedImages[currentCarouselIndex]?.extractionResult?.imageId &&
+                         retryingImages.has(completedImages[currentCarouselIndex]?.extractionResult?.imageId || '') && (
+                          <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-lg">
+                            <div className="text-center">
+                              <Loader2 className="w-8 h-8 animate-spin text-orange-600 mx-auto mb-2" />
+                              <p className="text-sm font-medium text-gray-700">AI is reanalyzing this image...</p>
+                              <p className="text-xs text-gray-500 mt-1">Please wait while we process the image again</p>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Container Grid Visualization */}
                         <ContainerGridVisualization
@@ -759,6 +948,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                           imageName={completedImages[currentCarouselIndex].file.name}
                           extractionResult={completedImages[currentCarouselIndex].extractionResult}
                           editable={true}
+                          disabled={retryingImages.has(completedImages[currentCarouselIndex].extractionResult?.imageId || '')}
                           onSerialNumberChange={(row, position, value) => {
                             // Use the backend image ID from the extraction result, not the local file ID
                             const backendImageId = completedImages[currentCarouselIndex].extractionResult?.imageId;
@@ -782,7 +972,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                 </Card>
               )}
 
-              {/* Action Buttons */}
+              {/* Action Buttons - Per Image */}
               <div className="flex justify-center space-x-3">
                 <Button variant="outline" onClick={onClose}>
                   Close
@@ -795,12 +985,12 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
                   {isCompletingVerification ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Completing...
+                      Verifying...
                     </>
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      Complete Verification
+                      Verify This Image ({currentCarouselIndex + 1}/{completedImages.length})
                     </>
                   )}
                 </Button>

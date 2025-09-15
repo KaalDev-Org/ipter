@@ -345,7 +345,13 @@ const UploadImage: React.FC = () => {
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setUploadedImages([])}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setUploadedImages([]);
+                                  setVerificationResult(null);
+                                  setShowVerificationDialog(false);
+                                }}
                                 className="border-red-200 text-red-600 hover:bg-red-50 h-8 px-3 text-xs"
                               >
                                 <X className="w-3 h-3 mr-1" />

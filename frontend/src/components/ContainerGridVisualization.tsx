@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
@@ -14,6 +14,7 @@ interface ContainerGridVisualizationProps {
   confidence?: number;
   gridStructure?: GridStructure;
   editable?: boolean;
+  disabled?: boolean;
   onSerialNumberChange?: (row: number, position: number, value: string) => void;
 }
 
@@ -41,6 +42,7 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
   confidence = 0,
   gridStructure,
   editable = false,
+  disabled = false,
   onSerialNumberChange
 }) => {
   const [showMagnifier, setShowMagnifier] = useState(false);
@@ -189,17 +191,31 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
     return grid;
   }, [extractionResult, gridStructure, containerNumbers, extractedText, parseNewGridFormat, parseGridStructure]);
 
-  // Initialize editable grid when data changes
+  // Compute editable grid using useMemo to avoid infinite loops
+  const computedEditableGrid = useMemo(() => {
+    if (!editable) return [];
+    return buildEditableGrid();
+  }, [
+    editable,
+    extractionResult?.imageId,
+    extractionResult?.grid_structure?.rows,
+    extractionResult?.grid_structure?.columns,
+    extractionResult?.grid_structure?.total_products,
+    containerNumbers?.length,
+    extractedText?.length,
+    gridStructure
+  ]);
+
+  // Update state only when computed grid changes
   React.useEffect(() => {
-    if (editable) {
-      const grid = buildEditableGrid();
-      setEditableGrid(grid);
+    if (editable && computedEditableGrid.length > 0) {
+      setEditableGrid(computedEditableGrid);
     }
-  }, [editable, buildEditableGrid]);
+  }, [editable, computedEditableGrid]);
 
   // Handle serial number changes
   const handleSerialNumberChange = (row: number, position: number, value: string) => {
-    if (!editable) return;
+    if (!editable || disabled) return;
 
     setEditableGrid(prev => {
       const newGrid = prev.map(r => [...r]);
@@ -227,6 +243,90 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
     if (confidence >= 90) return 'bg-green-100 border-green-300 text-green-800';
     if (confidence >= 80) return 'bg-orange-100 border-orange-300 text-orange-800';
     return 'bg-red-100 border-red-300 text-red-800';
+  };
+
+  // Function to detect duplicate serial numbers and return their positions
+  const getDuplicateSerials = () => {
+    const serialCounts: { [serial: string]: { row: number; position: number }[] } = {};
+    const duplicates: { [serial: string]: { row: number; position: number }[] } = {};
+
+    // Count occurrences of each serial number
+    editableGrid.forEach((row, rowIndex) => {
+      row.forEach((cell, colIndex) => {
+        const serial = cell.serialNumber.trim();
+        if (serial) {
+          if (!serialCounts[serial]) {
+            serialCounts[serial] = [];
+          }
+          serialCounts[serial].push({ row: rowIndex, position: colIndex });
+        }
+      });
+    });
+
+    // Find duplicates (serials that appear more than once)
+    Object.entries(serialCounts).forEach(([serial, positions]) => {
+      if (positions.length > 1) {
+        duplicates[serial] = positions;
+      }
+    });
+
+    return duplicates;
+  };
+
+  // Generate infinite duplicate colors using HSL color space
+  const generateDuplicateColor = (groupIndex: number) => {
+    // Use HSL to generate distinct colors
+    // Hue: spread across color wheel (0-360 degrees)
+    // Saturation: 40-60% for pleasant pastels
+    // Lightness: 85-95% for light backgrounds
+    const hue = (groupIndex * 137.5) % 360; // Golden angle for good distribution
+    const saturation = 45 + (groupIndex % 3) * 5; // 45%, 50%, 55%
+    const lightness = 88 + (groupIndex % 2) * 4; // 88%, 92%
+
+    return {
+      background: `hsl(${hue}, ${saturation}%, ${lightness}%)`,
+      border: `hsl(${hue}, ${saturation + 20}%, ${lightness - 25}%)`,
+      ring: `hsl(${hue}, ${saturation + 15}%, ${lightness - 15}%)`
+    };
+  };
+
+  // Function to get duplicate styling for a cell
+  const getDuplicateStyle = (row: number, position: number) => {
+    const duplicates = getDuplicateSerials();
+    const cell = editableGrid[row]?.[position];
+    if (!cell) return '';
+
+    const serial = cell.serialNumber.trim();
+    if (duplicates[serial]) {
+      const duplicateGroups = Object.keys(duplicates);
+      const groupIndex = duplicateGroups.indexOf(serial);
+      const colors = generateDuplicateColor(groupIndex);
+
+      // Return inline styles for dynamic colors
+      return `border-2 ring-2`;
+    }
+    return '';
+  };
+
+  // Function to get duplicate background style for a cell
+  const getDuplicateBackgroundStyle = (row: number, position: number) => {
+    const duplicates = getDuplicateSerials();
+    const cell = editableGrid[row]?.[position];
+    if (!cell) return {};
+
+    const serial = cell.serialNumber.trim();
+    if (duplicates[serial]) {
+      const duplicateGroups = Object.keys(duplicates);
+      const groupIndex = duplicateGroups.indexOf(serial);
+      const colors = generateDuplicateColor(groupIndex);
+
+      return {
+        backgroundColor: colors.background,
+        borderColor: colors.border,
+        boxShadow: `0 0 0 2px ${colors.ring}`
+      };
+    }
+    return {};
   };
 
   const getConfidenceBadgeColor = (confidence: number): string => {
@@ -481,24 +581,36 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
                         if (editable && cell && 'serialNumber' in cell) {
                           // Editable mode - render input fields
                           const editableCell = cell as EditableGridCell;
+                          const duplicateStyle = getDuplicateStyle(rowIndex, colIndex);
+                          const duplicateBackgroundStyle = getDuplicateBackgroundStyle(rowIndex, colIndex);
+
+                          // Priority: Duplicate styling > User-edited > Confidence-based
+                          let cellStyle = '';
+                          if (duplicateStyle) {
+                            cellStyle = duplicateStyle; // Highest priority for duplicates
+                          } else if (editableCell.serialNumber) {
+                            cellStyle = editableCell.isOriginal
+                              ? getConfidenceColor(editableCell.confidence)
+                              : 'bg-blue-50 border-blue-300'; // User-edited styling
+                          } else {
+                            cellStyle = 'bg-gray-50 border-gray-200';
+                          }
+
                           return (
                             <div
                               key={colIndex}
                               className={`
                                 h-12 rounded border flex flex-col items-center justify-center p-1 transition-all
-                                ${editableCell.serialNumber
-                                  ? editableCell.isOriginal
-                                    ? getConfidenceColor(editableCell.confidence)
-                                    : 'bg-blue-50 border-blue-300' // User-edited styling
-                                  : 'bg-gray-50 border-gray-200'
-                                }
+                                ${cellStyle}
                               `}
+                              style={duplicateBackgroundStyle}
                             >
                               <Input
                                 value={editableCell.serialNumber}
                                 onChange={(e) => handleSerialNumberChange(editableCell.row, editableCell.position, e.target.value)}
                                 placeholder="Serial"
-                                className="h-6 text-xs font-mono text-center border-0 bg-transparent focus:bg-white/90 focus:border focus:border-blue-400 rounded px-1"
+                                disabled={disabled}
+                                className={`h-6 text-xs font-mono text-center border-0 bg-transparent focus:bg-white/90 focus:border focus:border-blue-400 rounded px-1 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                                 style={{ minWidth: '40px' }}
                               />
                               {editableCell.serialNumber && (
@@ -549,22 +661,52 @@ const ContainerGridVisualization: React.FC<ContainerGridVisualizationProps> = ({
 
         {/* Confidence Legend */}
         <div className="mt-6 bg-gray-50 rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">Confidence Levels:</span>
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
-                <span className="text-xs text-gray-600">High (≥90%)</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
-                <span className="text-xs text-gray-600">Medium (80-89%)</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
-                <span className="text-xs text-gray-600">Low (&lt;80%)</span>
+          <div className="space-y-3">
+            {/* Confidence Levels */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">Confidence Levels:</span>
+              <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
+                  <span className="text-xs text-gray-600">High (≥90%)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded"></div>
+                  <span className="text-xs text-gray-600">Medium (80-89%)</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-red-100 border border-red-300 rounded"></div>
+                  <span className="text-xs text-gray-600">Low (&lt;80%)</span>
+                </div>
               </div>
             </div>
+
+            {/* Duplicate Detection */}
+            {Object.keys(getDuplicateSerials()).length > 0 && (
+              <div className="flex items-center justify-between border-t pt-3">
+                <span className="text-sm font-medium text-gray-700">Duplicate Serials Detected:</span>
+                <div className="flex items-center space-x-4 flex-wrap">
+                  {Object.keys(getDuplicateSerials()).map((serial, index) => {
+                    const colors = generateDuplicateColor(index);
+                    return (
+                      <div key={serial} className="flex items-center space-x-2">
+                        <div
+                          className="w-4 h-4 border-2 rounded"
+                          style={{
+                            backgroundColor: colors.background,
+                            borderColor: colors.border,
+                            boxShadow: `0 0 0 1px ${colors.ring}`
+                          }}
+                        ></div>
+                        <span className="text-xs text-gray-600">
+                          {serial} (Group {index + 1})
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
