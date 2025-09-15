@@ -119,11 +119,17 @@ public class DataViewService {
         List<Image> images = verifiedOnly ?
             imageRepository.findByProjectAndIsVerified(project, true) :
             imageRepository.findByProject(project);
-        
+
         // Get extracted data for all images in the project
         List<ExtractedData> allExtractedData = extractedDataRepository.findByProjectId(projectId);
         Map<UUID, List<ExtractedData>> extractedDataByImage = allExtractedData.stream()
             .collect(Collectors.groupingBy(ed -> ed.getImage().getId()));
+
+        // Filter extracted data to only include data from the filtered images (verified/unverified)
+        Set<UUID> filteredImageIds = images.stream().map(Image::getId).collect(Collectors.toSet());
+        List<ExtractedData> filteredExtractedData = allExtractedData.stream()
+            .filter(ed -> filteredImageIds.contains(ed.getImage().getId()))
+            .collect(Collectors.toList());
         
         // Build image summaries
         List<ProjectDataViewDTO.ImageDataSummaryDTO> imageSummaries = images.stream()
@@ -157,8 +163,8 @@ public class DataViewService {
             })
             .collect(Collectors.toList());
         
-        // Calculate project summary statistics
-        ProjectDataViewDTO.ProjectSummaryDTO summary = calculateProjectSummary(masterContainers, allExtractedData);
+        // Calculate project summary statistics using only filtered extracted data
+        ProjectDataViewDTO.ProjectSummaryDTO summary = calculateProjectSummary(masterContainers, filteredExtractedData);
 
         // Compute completion percentage: matched / total from PDFs (master data)
         int matched = summary != null ? summary.getMatchedSerialNos() : 0;

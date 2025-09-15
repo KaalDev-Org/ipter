@@ -1,6 +1,6 @@
 package com.ipter.controller;
 
-import java.util.ArrayList;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -518,30 +518,25 @@ public class ImageController {
      * Create row data structure from OCR results
      */
     private void createRowDataFromOCR(Map<String, Object> response, OCRResultDTO ocr, int rows, int columns) {
-        // Create a map to track which containers we've used
-        List<OCRResultDTO.ContainerNumberDTO> availableContainers = new ArrayList<>();
-        if (ocr.getContainerNumbers() != null) {
-            availableContainers.addAll(ocr.getContainerNumbers());
-        }
+        // Parse the extracted text to get the actual row structure from Gemini
+        Map<String, Map<String, Map<String, String>>> rowStructure = parseRowStructureFromExtractedText(ocr.getExtractedText());
 
-        int containerIndex = 0;
-
-        // Create row data structure
+        // Create row data structure using the actual Gemini row structure
         for (int row = 1; row <= rows; row++) {
             Map<String, Object> rowData = new HashMap<>();
+            String rowKey = "row" + row;
 
             for (int col = 1; col <= columns; col++) {
                 Map<String, Object> position = new HashMap<>();
 
-                // Use actual container data if available
-                if (containerIndex < availableContainers.size()) {
-                    OCRResultDTO.ContainerNumberDTO container = availableContainers.get(containerIndex);
-                    position.put("number", container.getNumber());
-                    position.put("confidence", formatConfidence(container.getConfidence()));
-                    containerIndex++;
+                // Check if we have data for this row and position from Gemini
+                if (rowStructure.containsKey(rowKey) &&
+                    rowStructure.get(rowKey).containsKey(String.valueOf(col))) {
+                    Map<String, String> containerData = rowStructure.get(rowKey).get(String.valueOf(col));
+                    position.put("number", containerData.get("number"));
+                    position.put("confidence", containerData.get("confidence"));
                 } else {
-                    // If we run out of actual containers, create empty positions
-                    // This maintains the grid structure even if not all positions have containers
+                    // If no data for this position, create empty
                     position.put("number", "");
                     position.put("confidence", "0%");
                 }
@@ -554,18 +549,54 @@ public class ImageController {
     }
 
     /**
-     * Format confidence as percentage string
+     * Parse the extracted text to get the row structure as returned by Gemini
      */
-    private String formatConfidence(Double confidence) {
-        if (confidence == null) {
-            return "unsure";
+    private Map<String, Map<String, Map<String, String>>> parseRowStructureFromExtractedText(String extractedText) {
+        Map<String, Map<String, Map<String, String>>> rowStructure = new HashMap<>();
+
+        if (extractedText == null || extractedText.trim().isEmpty()) {
+            return rowStructure;
         }
-        // If confidence is already a percentage (0-100), use as is
-        if (confidence > 1.0) {
-            return Math.round(confidence) + "%";
+
+        String[] lines = extractedText.split("\n");
+        String currentRow = null;
+
+        for (String line : lines) {
+            line = line.trim();
+
+            // Match row headers like "Row row1:", "Row row2:", etc.
+            if (line.startsWith("Row row") && line.endsWith(":")) {
+                currentRow = line.substring(4, line.length() - 1); // Extract "row1", "row2", etc.
+                rowStructure.put(currentRow, new HashMap<>());
+            }
+            // Match position lines like "  Position 1: 529776 (95%)"
+            else if (currentRow != null && line.startsWith("Position ")) {
+                String[] parts = line.split(":");
+                if (parts.length >= 2) {
+                    String positionPart = parts[0].trim();
+                    String dataPart = parts[1].trim();
+
+                    // Extract position number
+                    String positionStr = positionPart.replace("Position ", "");
+
+                    // Extract container number and confidence
+                    String[] dataParts = dataPart.split(" \\(");
+                    if (dataParts.length >= 2) {
+                        String containerNumber = dataParts[0].trim();
+                        String confidence = dataParts[1].replace(")", "").trim();
+
+                        Map<String, String> containerData = new HashMap<>();
+                        containerData.put("number", containerNumber);
+                        containerData.put("confidence", confidence);
+
+                        rowStructure.get(currentRow).put(positionStr, containerData);
+                    }
+                }
+            }
         }
-        // If confidence is a decimal (0-1), convert to percentage
-        return Math.round(confidence * 100) + "%";
+
+        return rowStructure;
     }
+
 
 }

@@ -96,6 +96,7 @@ public class AuthController {
             response.put("canViewAuditTrail", user.isCanViewAuditTrail());
             response.put("canCreateProjects", user.isCanCreateProjects());
             response.put("canViewReports", user.isCanViewReports());
+            response.put("mustChangePassword", user.isMustChangePassword());
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {

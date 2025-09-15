@@ -47,10 +47,94 @@ const ProjectData: React.FC = () => {
   const [selectedStatistic, setSelectedStatistic] = useState<string | null>(null);
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'matched' | 'unmatched' | 'duplicates'>('all');
   const [searchSerial, setSearchSerial] = useState('');
+  const [imageBlobUrls, setImageBlobUrls] = useState<Map<string, string>>(new Map());
 
   // Filter and search states for verification matrix
   const [matrixSearchTerm, setMatrixSearchTerm] = useState('');
   const [matrixStatusFilter, setMatrixStatusFilter] = useState<'all' | 'verified' | 'unverified'>('all');
+
+  // Function to fetch image with authentication and create blob URL
+  const fetchImageBlob = useCallback(async (imageId: string): Promise<string | null> => {
+    try {
+      // Check if we already have a blob URL for this image
+      if (imageBlobUrls.has(imageId)) {
+        return imageBlobUrls.get(imageId)!;
+      }
+
+      const blob = await projectAPI.fetchImageBlob(imageId);
+      const blobUrl = URL.createObjectURL(blob);
+
+      // Store the blob URL for future use
+      setImageBlobUrls(prev => new Map(prev).set(imageId, blobUrl));
+
+      return blobUrl;
+    } catch (error) {
+      console.error('Error fetching image:', error);
+      return null;
+    }
+  }, [imageBlobUrls]);
+
+  // Cleanup blob URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      imageBlobUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [imageBlobUrls]);
+
+  // Component to display image with authentication
+  const ImageWithAuth: React.FC<{ imageId: string; imageName: string; className?: string }> = ({ imageId, imageName, className }) => {
+    const [blobUrl, setBlobUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [hasError, setHasError] = useState(false);
+
+    useEffect(() => {
+      const loadImage = async () => {
+        setIsLoading(true);
+        setHasError(false);
+
+        const url = await fetchImageBlob(imageId);
+        if (url) {
+          setBlobUrl(url);
+        } else {
+          setHasError(true);
+        }
+        setIsLoading(false);
+      };
+
+      loadImage();
+    }, [imageId]);
+
+    if (isLoading) {
+      return (
+        <div className="w-full h-full flex items-center justify-center text-gray-400">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-400 mx-auto mb-2"></div>
+            <p className="text-sm">Loading image...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (hasError || !blobUrl) {
+      return (
+        <div className="w-full h-full flex items-center justify-center text-gray-400">
+          <div className="text-center">
+            <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No preview available</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <img
+        src={blobUrl}
+        alt={imageName}
+        className={className || "w-full h-full object-contain"}
+        onError={() => setHasError(true)}
+      />
+    );
+  };
 
   const loadActiveProjects = useCallback(async () => {
     try {
@@ -692,26 +776,11 @@ const ProjectData: React.FC = () => {
                                                 <div className="space-y-4">
                                                   <h3 className="text-lg font-semibold text-gray-900">Image Preview</h3>
                                                   <div className="relative bg-gray-100 rounded-lg overflow-hidden h-96">
-                                                    {image.imageUrl ? (
-                                                      <img
-                                                        src={image.imageUrl}
-                                                        alt={image.imageName}
-                                                        className="w-full h-full object-contain"
-                                                        onError={(e) => {
-                                                          e.currentTarget.style.display = 'none';
-                                                          const nextElement = e.currentTarget.nextElementSibling as HTMLElement;
-                                                          if (nextElement) {
-                                                            nextElement.style.display = 'flex';
-                                                          }
-                                                        }}
-                                                      />
-                                                    ) : null}
-                                                    <div className="w-full h-full flex items-center justify-center text-gray-400" style={{ display: image.imageUrl ? 'none' : 'flex' }}>
-                                                      <div className="text-center">
-                                                        <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                                        <p className="text-sm">No preview available</p>
-                                                      </div>
-                                                    </div>
+                                                    <ImageWithAuth
+                                                      imageId={image.imageId}
+                                                      imageName={image.imageName}
+                                                      className="w-full h-full object-contain"
+                                                    />
                                                   </div>
 
 
@@ -1002,10 +1071,12 @@ const ProjectData: React.FC = () => {
                                                           ? 'border-orange-400 bg-orange-50 hover:border-orange-500'
                                                           : 'border-red-400 bg-red-50 hover:border-red-500'
                                                     }`}>
-                                                      <CheckCircle className={`w-4 h-4 ${
-                                                        verification.confidence >= 90 ? 'text-green-600' :
-                                                        verification.confidence >= 80 ? 'text-orange-500' : 'text-red-600'
-                                                      }`} />
+                                                      <span className={`font-mono text-xs font-semibold ${
+                                                        verification.confidence >= 90 ? 'text-green-700' :
+                                                        verification.confidence >= 80 ? 'text-orange-700' : 'text-red-700'
+                                                      }`}>
+                                                        {item.serial}
+                                                      </span>
                                                     </div>
                                                   ) : (
                                                     <div className="w-full h-10 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center">

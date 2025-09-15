@@ -7,6 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { User, Mail, Calendar, Shield, Clock, MapPin, Building, Key, Settings, Activity, CheckCircle, AlertCircle, Eye, FolderOpen, FileText } from 'lucide-react';
 import ChangePasswordModal from '../components/ChangePasswordModal';
+import DemoCountdown from '../components/DemoCountdown';
 import { AuditLogger } from '../utils/auditLogger';
 
 interface UserProfile {
@@ -299,6 +300,9 @@ const Profile: React.FC = () => {
 
           {/* Quick Actions Sidebar */}
           <div className="space-y-6">
+            {/* Demo Status Card */}
+            <DemoCountdown />
+
             {/* Actions Card */}
             <Card className="bg-z-light-green backdrop-blur-sm shadow-xl border-0">
               <CardHeader className="bg-z-pale-green">

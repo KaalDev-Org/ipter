@@ -13,9 +13,14 @@ import UploadImage from '../pages/UploadImage';
 import ViewAuditTrail from '../pages/ViewAuditTrail';
 import ChangePasswordModal from './ChangePasswordModal';
 
+import { useDemoProtection } from '../hooks/useDemoProtection';
+
 // Layout component for authenticated pages (with navbar)
 const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { mustChangePassword, setMustChangePassword, user } = useAuth();
+
+  // Initialize demo protection
+  useDemoProtection();
 
   const handlePasswordChangeSuccess = () => {
     setMustChangePassword(false);
@@ -24,6 +29,7 @@ const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <div className="min-h-screen bg-white font-body">
       <Navbar />
+
       {children}
 
       {/* Password Change Modal */}

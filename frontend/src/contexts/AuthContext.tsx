@@ -42,12 +42,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (token) {
         try {
           const userData = await authAPI.getCurrentUser();
+
           // Ensure roles array is set properly for navbar compatibility
           const user: User = {
             ...userData,
             roles: userData.role ? [userData.role] : []
           };
           setUser(user);
+          // Set mustChangePassword flag from backend response
+          setMustChangePassword(userData.mustChangePassword || false);
         } catch (error: any) {
           console.error('Failed to get current user:', error);
           console.error('AuthContext: getCurrentUser failed with status:', error.response?.status, error.response?.data);
@@ -106,6 +109,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         console.log('Setting user with full permissions:', user);
         setUser(user);
+
+        // IMPORTANT: Use login response mustChangePassword, not getCurrentUser response
+        // The login response is the authoritative source for this flag
         setMustChangePassword(response.mustChangePassword || false);
         console.log('User set successfully with permissions');
       } catch (userError) {

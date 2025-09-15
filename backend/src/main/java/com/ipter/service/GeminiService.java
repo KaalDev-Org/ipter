@@ -169,7 +169,7 @@ public class GeminiService {
 
         GeminiRequestDTO.GenerationConfig config = new GeminiRequestDTO.GenerationConfig();
         config.setTemperature(0.1);
-        config.setMaxOutputTokens(8192);
+        config.setMaxOutputTokens(32768); // Increased for Gemini 2.5 Flash to handle large PDFs with 200+ serials
         config.setResponseMimeType("application/json");
         request.setGenerationConfig(config);
 
@@ -190,8 +190,15 @@ public class GeminiService {
     private String createPdfExtractionPrompt(String exampleNumber) {
         StringBuilder prompt = new StringBuilder();
         prompt.append("""
-            Analyze this PDF document and extract all container numbers/serial numbers/medication numbers found in the content.
-            Container numbers/serial numbers/medication numbers typically will be 6-8 digits numbers only.
+            CRITICAL: Analyze this PDF document and extract ALL container numbers/serial numbers/medication numbers found in the ENTIRE document.
+
+            IMPORTANT REQUIREMENTS:
+            1. Scan EVERY page of the PDF document thoroughly
+            2. Extract ALL serial numbers - do not stop at a certain count
+            3. Container numbers/serial numbers/medication numbers typically will be 6-8 digits numbers only
+            4. Look for numbers in tables, lists, headers, footers, and any other locations
+            5. Do not miss any serial numbers - completeness is critical
+            6. If there are 200+ serial numbers, extract ALL of them
             """);
 
         if (exampleNumber != null && !exampleNumber.trim().isEmpty()) {
@@ -236,6 +243,8 @@ public class GeminiService {
 
             Return a JSON object with an array of items. Each item must include the container number and a realistic confidence percentage based on visual analysis.
 
+            CRITICAL: Include ALL serial numbers found - do not truncate or limit the response. If there are 200+ serial numbers, include ALL of them in the JSON response.
+
             Respond strictly in this JSON format:
             {
               \"items\": [
@@ -247,6 +256,7 @@ public class GeminiService {
 
             If none are found, return: { \"items\": [] }
 
+            IMPORTANT: Do not truncate the response. Include ALL serial numbers found in the document, even if there are hundreds of them.
             Do not include any additional commentary, keys, or explanations.
         """);
 
@@ -288,6 +298,14 @@ Core Task
 4) The count must reflect the physical layout you actually see.
 5) Do not skip bottom or edge rows; include partially visible rows if clearly part of the grid.
 
+## 🗺️ Row Numbering System (CRITICAL)
+- row1 = TOP-MOST row of containers in the image
+- row2 = SECOND row from the top
+- row3 = THIRD row from the top
+- Continue this pattern: row4, row5, etc.
+- NEVER count from bottom-up. Always count from TOP to BOTTOM.
+- The BOTTOM-MOST row gets the HIGHEST row number.
+
 Report (in the output JSON):
 - grid_structure.rows = total rows detected
 - grid_structure.columns = total columns detected
@@ -298,6 +316,13 @@ Report (in the output JSON):
 - Extract only six-to-eight digit numeric codes (digits only). Ignore text like brand names, units, dates, words like lot/batch, or anything non-numeric.
 - Each container should have a unique serial. Do not duplicate the same serial across positions.
 - If a serial number is unreadable or does not meet the numeric rule, omit that position from the row data (do not guess, do not fabricate, do not return “N/A”).
+
+## 🗺️ Position Numbering Within Rows (CRITICAL)
+- Within each row, position "1" = LEFT-MOST container
+- position "2" = SECOND container from the left
+- position "3" = THIRD container from the left
+- Continue this pattern: "4", "5", etc.
+- NEVER count from right-to-left. Always count from LEFT to RIGHT.
 
 ## ✅ Confidence Scoring (simple rubric)
 - 95–100%: Perfectly clear, sharp, straight-on, high contrast
@@ -324,20 +349,28 @@ Represent confidence as a percentage string with “%” (e.g., "87%").
   - Within each row, positions are string keys "1"…"M" (M = grid_structure.columns)
   - Include only positions where a valid serial number was extracted
 
-Example (for a 3×4 grid)
+Example (for a 3×2 grid - 3 rows, 2 columns)
 {
-  "grid_structure": { "rows": 3, "columns": 4, "total_products": 12 },
+  "grid_structure": { "rows": 3, "columns": 2, "total_products": 6 },
   "row1": {
     "1": { "number": "123456", "confidence": "92%" },
     "2": { "number": "234567", "confidence": "89%" }
   },
   "row2": {
-    "1": { "number": "345678", "confidence": "85%" }
+    "1": { "number": "345678", "confidence": "85%" },
+    "2": { "number": "456789", "confidence": "78%" }
   },
   "row3": {
-    "4": { "number": "456789", "confidence": "78%" }
+    "1": { "number": "567890", "confidence": "90%" },
+    "2": { "number": "678901", "confidence": "88%" }
   }
 }
+
+VISUAL LAYOUT EXPLANATION:
+For a 3×2 grid, the visual layout should be:
+TOP ROW (row1):    [container 1:1] [container 1:2]
+MIDDLE ROW (row2): [container 2:1] [container 2:2]
+BOTTOM ROW (row3): [container 3:1] [container 3:2]
 
 Strict Rules
 - Return ONLY the JSON object described above.
@@ -624,7 +657,8 @@ Strict Rules
             if (t != null) sb.append(t);
         }
         String jsonResponse = sb.toString();
-        logger.info("Full Gemini response length: {} chars", jsonResponse.length());
+        logger.info("Full Gemini PDF response length: {} chars", jsonResponse.length());
+        logger.info("Raw Gemini PDF response: {}", jsonResponse.length() > 1000 ? jsonResponse.substring(0, 1000) + "..." : jsonResponse);
 
         String cleanJson = jsonResponse.trim();
         if (cleanJson.startsWith("```json")) cleanJson = cleanJson.substring(7);
@@ -685,9 +719,15 @@ Strict Rules
         result.setExtractedText(text.toString());
         result.setConfidence(count > 0 ? totalConfidence / count : 0.0);
 
+        logger.info("PDF Processing Summary - Total items parsed: {}, Valid container numbers extracted: {}",
+                   items.size(), containerNumbers.size());
+        logger.info("Final container numbers: {}", containerNumbers.size() > 10 ?
+                   containerNumbers.subList(0, 10).stream().map(c -> c.getNumber()).toList() + "... (showing first 10 of " + containerNumbers.size() + ")" :
+                   containerNumbers.stream().map(c -> c.getNumber()).toList());
+
         OCRResultDTO.ProcessingMetadataDTO metadata = new OCRResultDTO.ProcessingMetadataDTO();
-        metadata.setEngine("Google Gemini 2.0 Flash");
-        metadata.setEngineVersion("2.0");
+        metadata.setEngine("Google Gemini 2.5 Flash");
+        metadata.setEngineVersion("2.5");
         metadata.setTimestamp(java.time.LocalDateTime.now());
         if (response.getUsageMetadata() != null) {
             int totalTokens = response.getUsageMetadata().getTotalTokenCount();
@@ -783,9 +823,11 @@ Strict Rules
         result.setExtractedText(extractedText.toString());
         result.setConfidence(containerCount > 0 ? totalConfidence / containerCount : 0.0);
 
+
+
         OCRResultDTO.ProcessingMetadataDTO metadata = new OCRResultDTO.ProcessingMetadataDTO();
-        metadata.setEngine("Google Gemini 2.0 Flash");
-        metadata.setEngineVersion("2.0");
+        metadata.setEngine("Google Gemini 2.5 Flash");
+        metadata.setEngineVersion("2.5");
         metadata.setTimestamp(java.time.LocalDateTime.now());
         if (geminiResponse.getUsageMetadata() != null) {
             int totalTokens = geminiResponse.getUsageMetadata().getTotalTokenCount();

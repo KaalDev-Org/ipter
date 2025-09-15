@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { demoLock } from '../utils/demoLock';
 
 // Use full backend URL directly
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
@@ -33,9 +34,20 @@ const api = axios.create({
   withCredentials: true, // Include credentials for CORS
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and demo protection
 api.interceptors.request.use(
   (config) => {
+    // Demo protection: Check if demo is expired before making any API calls
+    try {
+      if (!demoLock.isAccessAllowed()) {
+        console.warn('Demo expired - blocking API request:', config.url);
+        return Promise.reject(new Error('Demo application has expired'));
+      }
+    } catch (error) {
+      console.error('Demo check failed - blocking API request:', error);
+      return Promise.reject(new Error('Demo verification failed'));
+    }
+
     // Clean any invalid tokens first
     cleanInvalidTokens();
 
@@ -201,6 +213,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   roles?: string[];
+  mustChangePassword?: boolean;
 }
 
 export interface AuthResponse {
@@ -1018,6 +1031,14 @@ export const projectAPI = {
   // Process PDF file with request body
   processPdfFileWithRequest: async (data: ProcessPdfRequest): Promise<{ message: string; result: ProcessPdfResponse }> => {
     const response = await api.post('/projects/process-pdf', data);
+    return response.data;
+  },
+
+  // Fetch image blob with authentication
+  fetchImageBlob: async (imageId: string): Promise<Blob> => {
+    const response = await api.get(`/images/${imageId}/view`, {
+      responseType: 'blob'
+    });
     return response.data;
   },
 };
