@@ -5,50 +5,66 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.ipter.model.ProjectStatus;
+
 /**
  * DTO for Project Data View - showing all images in project with comparison to master data
  */
 public class ProjectDataViewDTO {
-    
+
     private UUID projectId;
     private String projectName;
     private LocalDateTime createdAt;
     private List<String> masterData;
     private List<ImageDataSummaryDTO> images;
     private ProjectSummaryDTO summary;
-    
+
+    // New fields for project closure/completion tracking
+    private double completionPercentage; // rounded to 2 decimal places
+    private ProjectStatus status;        // effective status based on completion
+
     public ProjectDataViewDTO() {}
-    
+
     public ProjectDataViewDTO(UUID projectId, String projectName, LocalDateTime createdAt,
                              List<String> masterData, List<ImageDataSummaryDTO> images,
-                             ProjectSummaryDTO summary) {
+                             ProjectSummaryDTO summary,
+                             double completionPercentage,
+                             ProjectStatus status) {
         this.projectId = projectId;
         this.projectName = projectName;
         this.createdAt = createdAt;
         this.masterData = masterData;
         this.images = images;
         this.summary = summary;
+        this.completionPercentage = completionPercentage;
+        this.status = status;
     }
-    
+
     // Getters and Setters
     public UUID getProjectId() { return projectId; }
     public void setProjectId(UUID projectId) { this.projectId = projectId; }
-    
+
     public String getProjectName() { return projectName; }
     public void setProjectName(String projectName) { this.projectName = projectName; }
-    
+
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    
+
     public List<String> getMasterData() { return masterData; }
     public void setMasterData(List<String> masterData) { this.masterData = masterData; }
-    
+
     public List<ImageDataSummaryDTO> getImages() { return images; }
     public void setImages(List<ImageDataSummaryDTO> images) { this.images = images; }
-    
+
     public ProjectSummaryDTO getSummary() { return summary; }
     public void setSummary(ProjectSummaryDTO summary) { this.summary = summary; }
-    
+
+    public double getCompletionPercentage() { return completionPercentage; }
+    public void setCompletionPercentage(double completionPercentage) { this.completionPercentage = completionPercentage; }
+
+    public ProjectStatus getStatus() { return status; }
+    public void setStatus(ProjectStatus status) { this.status = status; }
+
     /**
      * DTO for individual image data summary in project view
      */
@@ -71,10 +87,10 @@ public class ProjectDataViewDTO {
             this.extractedContainers = extractedContainers;
             this.containerConfidences = containerConfidences;
         }
-        
+
         public UUID getImageId() { return imageId; }
         public void setImageId(UUID imageId) { this.imageId = imageId; }
-        
+
         public String getImageName() { return imageName; }
         public void setImageName(String imageName) { this.imageName = imageName; }
 
@@ -83,14 +99,14 @@ public class ProjectDataViewDTO {
 
         public LocalDateTime getUploadedAt() { return uploadedAt; }
         public void setUploadedAt(LocalDateTime uploadedAt) { this.uploadedAt = uploadedAt; }
-        
+
         public List<String> getExtractedContainers() { return extractedContainers; }
         public void setExtractedContainers(List<String> extractedContainers) { this.extractedContainers = extractedContainers; }
-        
+
         public Map<String, Double> getContainerConfidences() { return containerConfidences; }
         public void setContainerConfidences(Map<String, Double> containerConfidences) { this.containerConfidences = containerConfidences; }
     }
-    
+
     /**
      * DTO for project summary statistics
      */
@@ -100,9 +116,9 @@ public class ProjectDataViewDTO {
         private int matchedSerialNos;
         private int unmatchedSerialNos;
         private int duplicateSerialNos;
-        
+
         public ProjectSummaryDTO() {}
-        
+
         public ProjectSummaryDTO(int totalMasterSerialNos, int totalExtractedSerialNos,
                                 int matchedSerialNos, int unmatchedSerialNos, int duplicateSerialNos) {
             this.totalMasterSerialNos = totalMasterSerialNos;
@@ -111,19 +127,19 @@ public class ProjectDataViewDTO {
             this.unmatchedSerialNos = unmatchedSerialNos;
             this.duplicateSerialNos = duplicateSerialNos;
         }
-        
+
         public int getTotalMasterSerialNos() { return totalMasterSerialNos; }
         public void setTotalMasterSerialNos(int totalMasterSerialNos) { this.totalMasterSerialNos = totalMasterSerialNos; }
-        
+
         public int getTotalExtractedSerialNos() { return totalExtractedSerialNos; }
         public void setTotalExtractedSerialNos(int totalExtractedSerialNos) { this.totalExtractedSerialNos = totalExtractedSerialNos; }
-        
+
         public int getMatchedSerialNos() { return matchedSerialNos; }
         public void setMatchedSerialNos(int matchedSerialNos) { this.matchedSerialNos = matchedSerialNos; }
-        
+
         public int getUnmatchedSerialNos() { return unmatchedSerialNos; }
         public void setUnmatchedSerialNos(int unmatchedSerialNos) { this.unmatchedSerialNos = unmatchedSerialNos; }
-        
+
         public int getDuplicateSerialNos() { return duplicateSerialNos; }
         public void setDuplicateSerialNos(int duplicateSerialNos) { this.duplicateSerialNos = duplicateSerialNos; }
     }
