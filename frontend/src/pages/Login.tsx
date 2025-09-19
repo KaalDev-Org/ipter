@@ -261,7 +261,6 @@ const Login: React.FC = () => {
         {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-500">
-            © 2024 IPTER. Powered by Zuellig Pharma.
           </p>
         </div>
       </div>
