@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -11,12 +12,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.ipter.dto.ChangePasswordRequest;
 import com.ipter.dto.LoginRequest;
 import com.ipter.dto.LoginResponse;
 import com.ipter.dto.RegisterRequest;
+
 import com.ipter.model.User;
 import com.ipter.model.UserRole;
 import com.ipter.repository.UserRepository;
@@ -44,6 +45,9 @@ public class AuthService {
     @Autowired
     private SessionManagementService sessionManagementService;
 
+    @Autowired
+    private FailedLoginService failedLoginService;
+
 
 
     /**
@@ -62,6 +66,7 @@ public class AuthService {
         // Create new user
         User user = new User();
         user.setUsername(request.getUsername());
+        user.setLoginId(request.getUsername()); // Use username as loginId for registration
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setRole(request.getRole() != null ? request.getRole() : UserRole.USER);
@@ -75,24 +80,62 @@ public class AuthService {
     /**
      * Authenticate user and generate JWT token
      */
+    @Transactional
     public LoginResponse login(LoginRequest request) throws Exception {
-        try {
-            // Check concurrent user limit before authentication
-            if (!sessionManagementService.canUserLogin()) {
-                throw new Exception("Maximum number of concurrent users reached. Please try again later.");
+        System.out.println("DEBUG: Login attempt for username: " + request.getUsername());
+
+        // Check concurrent user limit before authentication
+        if (!sessionManagementService.canUserLogin()) {
+            throw new Exception("Maximum number of concurrent users reached. Please try again later.");
+        }
+
+        // First, check if user exists and handle pre-authentication checks
+        Optional<User> userOpt = userRepository.findByUsernameOrLoginIdOrEmail(request.getUsername());
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            System.out.println("DEBUG: User found: " + user.getUsername() + ", failed attempts: " + user.getFailedLoginAttempts() + ", active: " + user.isActive());
+
+            // Check if user account is locked due to failed attempts
+            if (!user.isAccountNonLocked()) {
+                System.out.println("DEBUG: Account is locked, incrementing failed attempts");
+                // Increment failed attempts even for locked accounts
+                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+                user.setUpdatedAt(LocalDateTime.now());
+                userRepository.save(user);
+                throw new BadCredentialsException("Account is locked due to multiple failed login attempts. Please contact an administrator for assistance.");
             }
 
+            // Check if user is inactive/disabled
+            if (!user.isActive()) {
+                System.out.println("DEBUG: User is inactive, incrementing failed attempts");
+                // Increment failed login attempts for inactive users trying to login
+                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+                user.setUpdatedAt(LocalDateTime.now());
+
+                // Check if this increment should lock the account
+                if (user.getFailedLoginAttempts() >= 5) {
+                    user.setActive(false);
+                }
+
+                userRepository.save(user);
+                throw new BadCredentialsException("This user account is currently disabled. Please contact an administrator for assistance.");
+            }
+        } else {
+            System.out.println("DEBUG: User not found for username: " + request.getUsername());
+        }
+
+        try {
+            System.out.println("DEBUG: Attempting authentication for user: " + request.getUsername());
             // Authenticate user
             Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
             );
 
             User user = (User) authentication.getPrincipal();
+            System.out.println("DEBUG: Authentication successful for user: " + user.getUsername());
 
-            // Check if user account is locked
-            if (!user.isAccountNonLocked()) {
-                throw new Exception("Account is locked due to multiple failed login attempts");
-            }
+            // All user roles (USER, REVIEWER, ADMINISTRATOR) are allowed to login
+            // No additional role-based restrictions needed here
 
             // Reset failed login attempts on successful login
             user.setFailedLoginAttempts(0);
@@ -114,24 +157,27 @@ public class AuthService {
                                    user.getEmail(), user.getRole(), expiresIn, user.isMustChangePassword());
 
         } catch (AuthenticationException e) {
-            // Check if the user exists and is inactive
-            Optional<User> userOpt = userRepository.findByUsernameOrLoginIdOrEmail(request.getUsername());
+            System.out.println("DEBUG: Authentication failed for user: " + request.getUsername() + ", exception: " + e.getClass().getSimpleName() + " - " + e.getMessage());
+
+            // Handle failed authentication (wrong password) in a separate transaction
             if (userOpt.isPresent()) {
-                User user = userOpt.get();
+                // Use separate transaction to ensure failed login attempts are persisted
+                int newFailedAttempts = failedLoginService.handleFailedLoginAttempt(request.getUsername());
 
-                // Check if user is inactive/disabled
-                if (!user.isActive()) {
-                    throw new BadCredentialsException("This user account is currently disabled. Please contact an administrator for assistance.");
+                // Check if account is now locked after the failed attempt
+                if (newFailedAttempts >= 5) {
+                    System.out.println("DEBUG: Account locked due to too many failed attempts: " + newFailedAttempts);
+                    throw new BadCredentialsException("Account has been locked due to too many failed login attempts. Please contact an administrator.");
                 }
-
-                // Increment failed login attempts for active users with wrong password
-                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
-                userRepository.save(user);
+            } else {
+                System.out.println("DEBUG: User not found in catch block for username: " + request.getUsername());
             }
 
             throw new BadCredentialsException("Invalid username or password");
         }
     }
+
+
 
     /**
      * Get current user from JWT token
