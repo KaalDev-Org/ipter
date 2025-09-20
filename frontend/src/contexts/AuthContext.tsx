@@ -35,7 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const rawToken = localStorage.getItem('token');
+      const rawToken = sessionStorage.getItem('token');
       // Handle the case where token is the string "null" instead of actual null
       const token = rawToken && rawToken !== 'null' && rawToken !== 'undefined' ? rawToken : null;
 
@@ -59,8 +59,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Only remove token if it's actually invalid (401/403), not for network errors
           if (error.response?.status === 401 || error.response?.status === 403) {
             console.warn('AuthContext: Removing token due to authentication failure');
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('refreshToken');
           } else {
             console.warn('AuthContext: Keeping token despite getCurrentUser failure (network/server error)');
           }
@@ -68,9 +68,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         // Clean up invalid tokens
         if (rawToken === 'null' || rawToken === 'undefined') {
-          console.warn('Found invalid token in localStorage, cleaning up:', rawToken);
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
+          console.warn('Found invalid token in sessionStorage, cleaning up:', rawToken);
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('refreshToken');
         }
       }
       setLoading(false);
@@ -78,6 +78,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initializeAuth();
   }, []);
+
+  // // Auto-logout on browser close/tab close
+  // useEffect(() => {
+  //   if (!user) return;
+
+  //   const handleUnload = () => {
+  //     // Perform logout when browser/tab is closed
+  //     const token = sessionStorage.getItem('token');
+  //     if (token) {
+  //       // Use sendBeacon for reliable logout during page unload
+  //       navigator.sendBeacon('/api/auth/logout', new Blob([JSON.stringify({})], { type: 'application/json' }));
+
+  //       // Clean up tokens
+  //       sessionStorage.removeItem('token');
+  //       sessionStorage.removeItem('refreshToken');
+  //     }
+  //   };
+
+  //   // Add event listener for page unload (browser/tab close)
+  //   window.addEventListener('unload', handleUnload);
+
+  //   // Cleanup function
+  //   return () => {
+  //     window.removeEventListener('unload', handleUnload);
+  //   };
+  // }, [user]);
 
   const login = async (data: LoginData) => {
     try {
@@ -87,14 +113,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Ensure we don't store null/undefined as strings
       if (response.token && response.token !== 'null' && response.token !== 'undefined') {
-        localStorage.setItem('token', response.token);
+        sessionStorage.setItem('token', response.token);
       } else {
         throw new Error('Invalid token received from server');
       }
 
       // Handle refreshToken if provided
       if (response.refreshToken && response.refreshToken !== 'null' && response.refreshToken !== 'undefined') {
-        localStorage.setItem('refreshToken', response.refreshToken);
+        sessionStorage.setItem('refreshToken', response.refreshToken);
       }
 
       // Get full user data with permissions from getCurrentUser API
@@ -148,8 +174,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('refreshToken');
       setUser(null);
       setMustChangePassword(false);
     }

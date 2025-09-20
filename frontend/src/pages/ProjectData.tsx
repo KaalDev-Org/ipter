@@ -612,91 +612,71 @@ const ProjectData: React.FC = () => {
                     ) : projectViewData ? (
                       <div className="space-y-6">
                         {/* Project Data Header */}
-                        <div className="bg-z-pale-green p-4 rounded-lg">
-                          <div className="flex items-center space-x-2 mb-4">
+                        <div className="bg-z-pale-green p-3 rounded-lg">
+                          <div className="flex items-center space-x-2 mb-3">
                             <BarChart3 className="w-5 h-5 text-gray-700" />
                             <h3 className="text-lg font-semibold text-gray-900" style={{ fontFamily: 'Georgia, serif' }}>
                               IPTER - Uploaded Data View
                             </h3>
                           </div>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="bg-white p-4 rounded-lg shadow-sm">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                                  <Database className="w-5 h-5 text-blue-600" />
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="bg-z-ivory p-3 rounded-lg shadow-sm border border-gray-200">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                  <Database className="w-4 h-4 text-green-600" />
                                 </div>
                                 <div>
-                                  <p className="text-2xl font-bold text-gray-900">{projectViewData.masterData?.length || 0}</p>
-                                  <p className="text-sm text-gray-600">Master Data</p>
+                                  <p className="text-lg font-bold text-gray-900">{projectViewData.masterData?.length || 0}</p>
+                                  <p className="text-xs text-gray-600">Master Data</p>
                                 </div>
                               </div>
                             </div>
-                            <div className="bg-white p-4 rounded-lg shadow-sm">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                                  <CheckCircle className="w-5 h-5 text-green-600" />
+                            <div className="bg-z-ivory p-3 rounded-lg shadow-sm border border-gray-200">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                  <CheckCircle className="w-4 h-4 text-green-600" />
                                 </div>
                                 <div>
-                                  <p className="text-2xl font-bold text-gray-900">{projectViewData.summary?.matchedSerialNos || 0}</p>
-                                  <p className="text-sm text-gray-600">Matched</p>
+                                  <p className="text-lg font-bold text-gray-900">{projectViewData.summary?.matchedSerialNos || 0}</p>
+                                  <p className="text-xs text-gray-600">Matched</p>
                                 </div>
                               </div>
                             </div>
-                            <div className="bg-white p-4 rounded-lg shadow-sm">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                                  <AlertTriangle className="w-5 h-5 text-yellow-600" />
+                            <div className="bg-z-ivory p-3 rounded-lg shadow-sm border border-gray-200">
+                              <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                                  <AlertTriangle className="w-4 h-4 text-orange-600" />
                                 </div>
                                 <div>
-                                  <p className="text-2xl font-bold text-gray-900">{projectViewData.summary?.unmatchedSerialNos || 0}</p>
-                                  <p className="text-sm text-gray-600">Unmatched</p>
+                                  <p className="text-lg font-bold text-gray-900">{projectViewData.summary?.unmatchedSerialNos || 0}</p>
+                                  <p className="text-xs text-gray-600">Unmatched</p>
                                 </div>
                               </div>
                             </div>
-                              {/* Completion & Status */}
-                              <div className="bg-white p-4 rounded-lg shadow-sm">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                                      <BarChart3 className="w-5 h-5 text-purple-600" />
-                                    </div>
-                                    <div>
-                                      <p className="text-sm text-gray-600">Completion</p>
-                                      <p className="text-2xl font-bold text-gray-900">{completionPct.toFixed(2)}%</p>
-                                    </div>
+                            <div className="bg-z-ivory p-3 rounded-lg shadow-sm border border-gray-200">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <BarChart3 className="w-4 h-4 text-purple-600" />
                                   </div>
                                   <div>
-                                    {getStatusBadge(effectiveStatus)}
+                                    <p className="text-xs text-gray-600">Completion</p>
+                                    <p className="text-lg font-bold text-gray-900">{completionPct.toFixed(1)}%</p>
                                   </div>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className={`h-2 rounded-full transition-all duration-500 ${
-                                      completionPct >= 100 ? 'bg-green-600' :
-                                      completionPct >= 70 ? 'bg-yellow-500' : 'bg-red-500'
-                                    }`}
-                                    style={{ width: `${Math.min(100, Math.max(0, completionPct))}%` }}
-                                  ></div>
+                                <div>
+                                  {getStatusBadge(effectiveStatus)}
                                 </div>
-                                <p className="mt-2 text-xs text-gray-500">
-                                  Calculated as matched / total from PDFs.
-                                </p>
-                                {completionPct >= 100 && (
-                                  <div className="mt-2 text-xs font-medium text-green-700 flex items-center space-x-1">
-                                    <CheckCircle className="w-4 h-4" />
-                                    <span>All containers matched. Project is complete.</span>
-                                  </div>
-                                )}
                               </div>
-
+                            </div>
                           </div>
                         </div>
 
                         {/* Modern Verification Dashboard */}
                         {projectViewData.masterData && projectViewData.masterData.length > 0 && (
-                          <div className="space-y-6">
+                          <div className="space-y-4">
                             {/* Compact Image Overview */}
-                            <Card className="bg-white shadow-lg border border-gray-200 rounded-xl">
+                            <Card className="bg-z-light-green shadow-lg border border-gray-200 rounded-xl">
                               <CardHeader className="border-b border-gray-200 bg-z-pale-green">
                                 <CardTitle className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
                                   <ImageIcon className="w-5 h-5 text-gray-700" />
@@ -706,8 +686,8 @@ const ProjectData: React.FC = () => {
                                   </Badge>
                                 </CardTitle>
                               </CardHeader>
-                              <CardContent className="p-4">
-                                <div className="space-y-3">
+                              <CardContent className="p-4 bg-z-light-green">
+                                <div className="space-y-2">
                                   {projectViewData.images && projectViewData.images.map((image, index) => {
                                     const matchedCount = image.extractedContainers.filter(serial =>
                                       projectViewData.masterData.includes(serial)
@@ -719,7 +699,7 @@ const ProjectData: React.FC = () => {
                                     const verificationRate = image.extractedContainers.length > 0 ? Math.round((matchedCount / image.extractedContainers.length) * 100) : 0;
 
                                     return (
-                                      <div key={image.imageId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                      <div key={image.imageId} className="flex items-center justify-between p-3 bg-z-ivory rounded-lg hover:bg-z-sky/20 transition-colors border border-gray-200">
                                         {/* Left side - Image info */}
                                         <div className="flex items-center space-x-4">
                                           <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -881,7 +861,7 @@ const ProjectData: React.FC = () => {
                             </Card>
 
                             {/* Creative Master Data Verification Layout */}
-                            <Card className="bg-white shadow-xl border border-gray-200 rounded-2xl overflow-hidden">
+                            <Card className="bg-z-light-green shadow-xl border border-gray-200 rounded-2xl overflow-hidden">
                               <CardHeader className="border-b border-gray-200 bg-gradient-to-r from-z-pale-green to-z-light-green">
                                 <CardTitle className="text-xl font-bold text-gray-900 flex items-center space-x-3">
                                   <div className="w-10 h-10 bg-white/80 rounded-xl flex items-center justify-center shadow-sm">
@@ -987,39 +967,36 @@ const ProjectData: React.FC = () => {
                                   const unverifiedCount = verificationMatrix.filter(item => item.status === 'unverified').length;
 
                                   return (
-                                    <div className="space-y-8">
+                                    <div className="space-y-4">
                                       {/* Summary Stats */}
-                                      <div className="grid grid-cols-3 gap-4">
-                                        <div className="text-center p-4 bg-z-light-green rounded-lg border border-gray-200">
-                                          <div className="text-2xl font-bold text-green-600 mb-1">{verifiedCount}</div>
-                                          <div className="text-sm font-medium text-gray-700">Verified</div>
+                                      <div className="grid grid-cols-3 gap-3">
+                                        <div className="text-center p-3 bg-z-ivory rounded-lg border border-gray-200">
+                                          <div className="text-xl font-bold text-green-600 mb-1">{verifiedCount}</div>
+                                          <div className="text-xs font-medium text-gray-700">Verified</div>
                                         </div>
-                                        <div className="text-center p-4 bg-z-light-green rounded-lg border border-gray-200">
-                                          <div className="text-2xl font-bold text-blue-600 mb-1">{masterData.length}</div>
-                                          <div className="text-sm font-medium text-gray-700">Total Serials</div>
+                                        <div className="text-center p-3 bg-z-ivory rounded-lg border border-gray-200">
+                                          <div className="text-xl font-bold text-blue-600 mb-1">{masterData.length}</div>
+                                          <div className="text-xs font-medium text-gray-700">Total Serials</div>
                                         </div>
-                                        <div className="text-center p-4 bg-z-light-green rounded-lg border border-gray-200">
-                                          <div className="text-2xl font-bold text-orange-600 mb-1">{unverifiedCount}</div>
-                                          <div className="text-sm font-medium text-gray-700">Unverified</div>
+                                        <div className="text-center p-3 bg-z-ivory rounded-lg border border-gray-200">
+                                          <div className="text-xl font-bold text-orange-600 mb-1">{unverifiedCount}</div>
+                                          <div className="text-xs font-medium text-gray-700">Unverified</div>
                                         </div>
                                       </div>
 
                                       {/* Matrix Header */}
-                                      <div className="bg-z-pale-green rounded-lg p-4 border border-gray-200">
+                                      <div className="bg-white rounded-lg p-3 border border-gray-200 shadow-sm">
                                         <div className="grid gap-3" style={{ gridTemplateColumns: `160px repeat(${images.length}, 1fr)` }}>
                                           {/* Header Row */}
-                                          <div className="font-semibold text-gray-900 text-sm flex items-center bg-z-light-green rounded-lg p-2">
+                                          <div className="font-semibold text-gray-900 text-sm flex items-center bg-z-pale-green rounded-lg p-3 border border-gray-200">
                                             <Hash className="w-4 h-4 mr-2 text-gray-600" />
                                             Master Data
                                           </div>
-                                          {images.map((image, idx) => (
+                                          {images.map((image) => (
                                             <div key={image.imageId} className="text-center">
-                                              <div className="bg-z-light-green rounded-lg p-2 shadow-sm border border-gray-200">
-                                                <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-1">
-                                                  <span className="text-xs font-bold text-blue-600">{idx + 1}</span>
-                                                </div>
+                                              <div className="bg-z-pale-green rounded-lg p-3 shadow-sm border border-gray-200">
                                                 <div className="font-medium text-gray-900 text-xs truncate" title={image.imageName}>
-                                                  {image.imageName.length > 12 ? `${image.imageName.substring(0, 12)}...` : image.imageName}
+                                                  {image.imageName.length > 15 ? `${image.imageName.substring(0, 15)}...` : image.imageName}
                                                 </div>
                                                 <div className="text-xs text-gray-500 mt-1">
                                                   {new Date(image.uploadedAt).toLocaleDateString()}
@@ -1032,8 +1009,8 @@ const ProjectData: React.FC = () => {
 
                                       {/* Matrix Content */}
                                       <div className="space-y-2">
-                                        {verificationMatrix.map((item, rowIndex) => (
-                                          <div key={item.serial} className="bg-z-light-green rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+                                        {verificationMatrix.map((item) => (
+                                          <div key={item.serial} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
                                             <div className="grid gap-3 p-3" style={{ gridTemplateColumns: `160px repeat(${images.length}, 1fr)` }}>
                                               {/* Serial Number Column */}
                                               <div className="flex items-center space-x-2">
@@ -1061,7 +1038,7 @@ const ProjectData: React.FC = () => {
                                               </div>
 
                                               {/* Image Verification Columns */}
-                                              {item.verifications.map((verification, colIndex) => (
+                                              {item.verifications.map((verification) => (
                                                 <div key={verification.imageId} className="flex items-center justify-center">
                                                   {verification.isVerified ? (
                                                     <div className={`w-full h-10 rounded-lg border flex items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer ${

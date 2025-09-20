@@ -11,8 +11,8 @@
 export const DEMO_CONFIG = {
   // Demo expiry date: October 31, 2026
   EXPIRY_YEAR: 2025,
-  EXPIRY_MONTH: 12, // September (1-12)
-  EXPIRY_DAY: 31,
+  EXPIRY_MONTH: 11, // September (1-12)
+  EXPIRY_DAY: 30,
   
   // Grace period settings
   GRACE_PERIOD_DAYS: 7,

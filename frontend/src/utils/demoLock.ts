@@ -6,8 +6,8 @@
 // ===== DEMO CONFIGURATION =====
 // To change the expiry date, modify these values:
 const DEMO_YEAR = 2025;
-const DEMO_MONTH = 12; // September (1-12)
-const DEMO_DAY = 31;
+const DEMO_MONTH = 11; // September (1-12)
+const DEMO_DAY = 30;
 const GRACE_PERIOD_DAYS = 1;
 
 // Backup timestamp for validation
