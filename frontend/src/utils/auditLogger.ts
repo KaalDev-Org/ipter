@@ -9,9 +9,9 @@ const auditAPI = axios.create({
   withCredentials: true,
 });
 
-// Add auth token to audit requests
+// Add auth token to audit requests (consistent with AuthContext using sessionStorage)
 auditAPI.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = sessionStorage.getItem('token');
   if (token && token !== 'null' && token !== 'undefined') {
     config.headers.Authorization = `Bearer ${token}`;
   }

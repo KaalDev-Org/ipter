@@ -152,7 +152,7 @@ const ImageProcessingDialog: React.FC<ImageProcessingDialogProps> = ({
     console.log('📊 Backend Image ID:', backendImageId);
 
     // Check authentication status
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
       console.error('❌ No authentication token found');
       showToast('Authentication error: Please log in again', 'error');

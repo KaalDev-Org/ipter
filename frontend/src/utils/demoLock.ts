@@ -6,12 +6,12 @@
 // ===== DEMO CONFIGURATION =====
 // To change the expiry date, modify these values:
 const DEMO_YEAR = 2025;
-const DEMO_MONTH = 11; // September (1-12)
-const DEMO_DAY = 30;
+const DEMO_MONTH = 12; // December (1-12)
+const DEMO_DAY = 31;
 const GRACE_PERIOD_DAYS = 1;
 
 // Backup timestamp for validation
-const DEMO_TIMESTAMP = 1726520940000; // Sep 16, 2025 23:59:00.000
+const DEMO_TIMESTAMP = 1735689540000; // Dec 31, 2025 23:59:00.000
 
 interface DemoStatus {
   isExpired: boolean;

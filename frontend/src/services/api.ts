@@ -4,25 +4,25 @@ import { demoLock } from '../utils/demoLock';
 // Use full backend URL directly
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
-// Utility function to get valid token from localStorage
+// Utility function to get valid token from sessionStorage (consistent with AuthContext)
 const getValidToken = (): string | null => {
-  const rawToken = localStorage.getItem('token');
+  const rawToken = sessionStorage.getItem('token');
   return rawToken && rawToken !== 'null' && rawToken !== 'undefined' ? rawToken : null;
 };
 
 // Utility function to clean invalid tokens
 const cleanInvalidTokens = (): void => {
-  const rawToken = localStorage.getItem('token');
-  const rawRefreshToken = localStorage.getItem('refreshToken');
+  const rawToken = sessionStorage.getItem('token');
+  const rawRefreshToken = sessionStorage.getItem('refreshToken');
 
   if (rawToken === 'null' || rawToken === 'undefined') {
-    console.warn('Cleaning invalid token from localStorage:', rawToken);
-    localStorage.removeItem('token');
+    console.warn('Cleaning invalid token from sessionStorage:', rawToken);
+    sessionStorage.removeItem('token');
   }
 
   if (rawRefreshToken === 'null' || rawRefreshToken === 'undefined') {
-    console.warn('Cleaning invalid refresh token from localStorage:', rawRefreshToken);
-    localStorage.removeItem('refreshToken');
+    console.warn('Cleaning invalid refresh token from sessionStorage:', rawRefreshToken);
+    sessionStorage.removeItem('refreshToken');
   }
 };
 
@@ -67,7 +67,7 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
       console.log('Authorization header set:', config.headers.Authorization.substring(0, 30) + '...');
     } else {
-      console.warn('No valid token found in localStorage for authenticated request to:', config.url);
+      console.warn('No valid token found in sessionStorage for authenticated request to:', config.url);
     }
     return config;
   },
@@ -112,7 +112,7 @@ api.interceptors.response.use(
       const isTokenAlreadyInvalid = !currentToken;
 
       try {
-        const rawRefreshToken = localStorage.getItem('refreshToken');
+        const rawRefreshToken = sessionStorage.getItem('refreshToken');
         const refreshToken = rawRefreshToken && rawRefreshToken !== 'null' && rawRefreshToken !== 'undefined' ? rawRefreshToken : null;
 
         if (refreshToken) {
@@ -122,7 +122,7 @@ api.interceptors.response.use(
           });
 
           const { token } = response.data;
-          localStorage.setItem('token', token);
+          sessionStorage.setItem('token', token);
           console.log('Token refreshed successfully');
 
           // Retry the original request
@@ -134,10 +134,10 @@ api.interceptors.response.use(
           // Only remove tokens if they weren't already invalid
           // This prevents removing valid tokens when audit endpoints fail due to other reasons
           if (!isTokenAlreadyInvalid) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('refreshToken');
           } else {
-            console.log('Token was already invalid, not removing from localStorage');
+            console.log('Token was already invalid, not removing from sessionStorage');
           }
 
           // Don't auto-redirect for audit endpoints - let the component handle it
@@ -153,10 +153,10 @@ api.interceptors.response.use(
 
         // Only remove tokens if they weren't already invalid
         if (!isTokenAlreadyInvalid) {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('refreshToken');
         } else {
-          console.log('Token was already invalid, not removing from localStorage after refresh failure');
+          console.log('Token was already invalid, not removing from sessionStorage after refresh failure');
         }
 
         // Don't auto-redirect for audit endpoints - let the component handle it
@@ -348,7 +348,7 @@ export const authAPI = {
   // Debug function to validate current token
   validateCurrentToken: async (): Promise<{ valid: boolean; user?: any; error?: string }> => {
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       if (!token) {
         return { valid: false, error: 'No token found' };
       }

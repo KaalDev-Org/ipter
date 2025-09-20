@@ -43,8 +43,8 @@ const AuthDebug: React.FC = () => {
           <div><strong>Username:</strong> {user?.username || 'undefined'}</div>
           <div><strong>Email:</strong> {user?.email || 'undefined'}</div>
           <div><strong>Can View Audit Trail:</strong> {user?.canViewAuditTrail ? 'true' : 'false'}</div>
-          <div><strong>Token Present:</strong> {localStorage.getItem('token') ? 'true' : 'false'}</div>
-          <div><strong>Token Preview:</strong> {localStorage.getItem('token')?.substring(0, 30) + '...' || 'none'}</div>
+          <div><strong>Token Present:</strong> {sessionStorage.getItem('token') ? 'true' : 'false'}</div>
+          <div><strong>Token Preview:</strong> {sessionStorage.getItem('token')?.substring(0, 30) + '...' || 'none'}</div>
         </div>
 
         <div className="mt-4 space-y-2">

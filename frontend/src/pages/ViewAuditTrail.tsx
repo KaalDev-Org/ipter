@@ -316,8 +316,8 @@ const ViewAuditTrail: React.FC = () => {
   };
 
   useEffect(() => {
-    const rawToken = localStorage.getItem('token');
-    const rawRefreshToken = localStorage.getItem('refreshToken');
+    const rawToken = sessionStorage.getItem('token');
+    const rawRefreshToken = sessionStorage.getItem('refreshToken');
 
     console.log('ViewAuditTrail useEffect - Auth status:', {
       isAuthenticated,
@@ -339,11 +339,11 @@ const ViewAuditTrail: React.FC = () => {
     // Clean up invalid tokens immediately
     if (rawToken === 'null' || rawToken === 'undefined') {
       console.warn('Found invalid token, cleaning up:', rawToken);
-      localStorage.removeItem('token');
+      sessionStorage.removeItem('token');
     }
     if (rawRefreshToken === 'null' || rawRefreshToken === 'undefined') {
       console.warn('Found invalid refresh token, cleaning up:', rawRefreshToken);
-      localStorage.removeItem('refreshToken');
+      sessionStorage.removeItem('refreshToken');
     }
 
     if (isAuthenticated && user?.canViewAuditTrail === true) {

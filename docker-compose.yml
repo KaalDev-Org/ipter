@@ -1,19 +1,17 @@
-version: '3.8'
+# Docker Compose file for IPTER Application
+# Note: version field is now obsolete in Docker Compose v2+
 
 services:
   ipter-app:
     build:
       context: .
       dockerfile: Dockerfile
-    image: macpie2000/ipter:latest
+    image: ipter:latest
     container_name: ipter-application
     ports:
       - "80:80"      # Frontend (nginx)
       - "8080:8080"  # Backend API
     environment:
-      # Timezone Configuration - Use host machine timezone
-      - TZ=${TZ:-UTC}
-
       # Database Configuration - PostgreSQL for production
       - SPRING_DATASOURCE_URL=jdbc:postgresql://ipter-db:5432/ipter
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
@@ -55,6 +53,8 @@ services:
       - ipter-reports:/app/reports
       - ipter-thumbnails:/app/thumbnails
       - ipter-logs:/app/logs
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     restart: unless-stopped
     depends_on:
       - ipter-db

@@ -200,6 +200,7 @@ public class UserManagementService {
                 .orElseThrow(() -> new Exception("User not found"));
 
         user.setActive(!user.isActive());
+        user.setFailedLoginAttempts(0);
         user.setUpdatedAt(LocalDateTime.now());
 
         // Force logout if deactivating
