@@ -6,12 +6,15 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ipter:latest
+    image: ramkousik/ipter:latest
     container_name: ipter-application
     ports:
       - "80:80"      # Frontend (nginx)
       - "8080:8080"  # Backend API
     environment:
+      # Timezone Configuration
+      - TZ=Asia/Kolkata
+
       # Database Configuration - PostgreSQL for production
       - SPRING_DATASOURCE_URL=jdbc:postgresql://ipter-db:5432/ipter
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
@@ -70,6 +73,8 @@ services:
     image: postgres:15-alpine
     container_name: ipter-database
     environment:
+      # Timezone Configuration
+      - TZ=Asia/Kolkata
       - POSTGRES_DB=ipter
       - POSTGRES_USER=ipter
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-ipter_password}

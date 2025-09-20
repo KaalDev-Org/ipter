@@ -162,7 +162,7 @@ public class AuthService {
             // Handle failed authentication (wrong password) in a separate transaction
             if (userOpt.isPresent()) {
                 // Use separate transaction to ensure failed login attempts are persisted
-                int newFailedAttempts = failedLoginService.handleFailedLoginAttempt(request.getUsername());
+                int newFailedAttempts = userOpt.get().getRole() != UserRole.ADMINISTRATOR ? failedLoginService.handleFailedLoginAttempt(request.getUsername()) : 0 ;
 
                 // Check if account is now locked after the failed attempt
                 if (newFailedAttempts >= 5) {

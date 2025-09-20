@@ -3,6 +3,7 @@ package com.ipter.service;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import com.ipter.model.UserRole;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -40,7 +41,7 @@ public class FailedLoginService {
             System.out.println("DEBUG: New failed attempts count: " + newFailedAttempts);
 
             // Check if account should be locked after this failed attempt
-            if (newFailedAttempts >= 5) {
+            if (newFailedAttempts >= 5 && (user.getRole() != UserRole.ADMINISTRATOR ) ) {
                 System.out.println("DEBUG: Locking account due to " + newFailedAttempts + " failed attempts");
                 user.setActive(false);
             }
